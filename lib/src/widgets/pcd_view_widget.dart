@@ -1,17 +1,23 @@
+import 'dart:async';
+import 'dart:developer' as developer;
+
 import 'package:ditredi/ditredi.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:vector_math/vector_math_64.dart' hide Colors;
+
 import '../config/viewer_config.dart';
-import '../ffi/api.dart';
+import '../ffi/frb.dart' as frb;
 import '../models/point_3d_adapter.dart';
+
+enum _PcdViewPhase { idle, loading, preparing, ready, error }
 
 /// PCD 点云查看器 Widget
 ///
 /// 支持从文件路径或预解析数据加载点云，提供交互式 3D 查看
-class PcdView extends HookWidget {
+class PcdView extends StatefulWidget {
   /// 点云数据（预解析）
-  final List<dynamic>? points;
+  final List<frb.Point3D>? points;
 
   /// PCD 文件路径
   final String? filePath;
@@ -47,180 +53,545 @@ class PcdView extends HookWidget {
   }) : points = null;
 
   @override
-  Widget build(BuildContext context) {
-    final loadedPoints = useState<List<dynamic>?>(points);
-    final error = useState<String?>(null);
-    final isLoading = useState(points == null && filePath != null);
-
-    useEffect(() {
-      if (filePath != null && points == null) {
-        isLoading.value = true;
-        error.value = null;
-
-        try {
-          final parsed = parsePcd(path: filePath!);
-          loadedPoints.value = parsed;
-          isLoading.value = false;
-          onLoaded?.call(parsed.length);
-        } catch (e) {
-          error.value = e.toString();
-          isLoading.value = false;
-          onError?.call(e.toString());
-        }
-      } else if (points != null) {
-        loadedPoints.value = points;
-        onLoaded?.call(points!.length);
-      }
-      return null;
-    }, [filePath, points]);
-
-    if (isLoading.value) {
-      return Container(
-        color: config.backgroundColor,
-        child: const Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-
-    if (error.value != null) {
-      return Container(
-        color: config.backgroundColor,
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Text(
-              '加载失败:\n${error.value}',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.red),
-            ),
-          ),
-        ),
-      );
-    }
-
-    if (loadedPoints.value == null || loadedPoints.value!.isEmpty) {
-      return Container(
-        color: config.backgroundColor,
-        child: const Center(
-          child: Text(
-            '没有点云数据',
-            style: TextStyle(color: Colors.white54),
-          ),
-        ),
-      );
-    }
-
-    return _PcdViewRenderer(
-      points: loadedPoints.value!,
-      config: config,
-      controller: controller,
-    );
-  }
+  State<PcdView> createState() => _PcdViewState();
 }
 
-class _PcdViewRenderer extends HookWidget {
-  final List<dynamic> points;
-  final ViewerConfig config;
-  final DiTreDiController? controller;
+class _PcdViewState extends State<PcdView> {
+  static int _requestSeed = 0;
 
-  const _PcdViewRenderer({
-    required this.points,
-    required this.config,
-    this.controller,
-  });
+  late final DiTreDiController _internalController;
+
+  _PcdViewPhase _phase = _PcdViewPhase.idle;
+  List<frb.Point3D> _rawPoints = const [];
+  List<Model3D> _figures = const [];
+  String? _errorMessage;
+  int _activeRequestId = 0;
+
+  DiTreDiController get _controller => widget.controller ?? _internalController;
 
   @override
-  Widget build(BuildContext context) {
-    final ditrediController = controller ??
-        useMemoized(
-          () => DiTreDiController(
-            rotationX: config.camera.rotationX,
-            rotationY: config.camera.rotationY,
-            userScale: config.camera.zoom,
-            minUserScale: config.camera.minZoom,
-            maxUserScale: config.camera.maxZoom,
-          ),
-        );
+  void initState() {
+    super.initState();
+    _internalController = _createController(widget.config);
+    unawaited(_startSourceRequest());
+  }
 
-    final ditrediPoints = useMemoized(
-      () => Point3DAdapter.ffiToDitrediList(
-        points.cast(),
-        pointSize: config.pointSize,
-      ),
-      [points, config.pointSize],
+  @override
+  void didUpdateWidget(covariant PcdView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (_didSourceChange(oldWidget, widget)) {
+      unawaited(_startSourceRequest());
+      return;
+    }
+
+    if (_didSceneConfigChange(oldWidget.config, widget.config) && _rawPoints.isNotEmpty) {
+      unawaited(
+        _prepareScene(
+          requestId: _activeRequestId,
+          points: _rawPoints,
+          showPreparingState: false,
+          reason: 'config',
+          notifyLoaded: false,
+        ),
+      );
+    }
+
+    if (oldWidget.controller == null && widget.controller == null) {
+      _internalController.update(
+        minUserScale: widget.config.camera.minZoom,
+        maxUserScale: widget.config.camera.maxZoom,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    if ((_phase == _PcdViewPhase.loading || _phase == _PcdViewPhase.preparing) && _activeRequestId > 0) {
+      _logViewer(
+        event: 'cancel_dispose',
+        requestId: _activeRequestId,
+        fileLabel: _sourceLabel,
+        message: 'viewer disposed while request still running',
+      );
+    }
+    _activeRequestId = -1;
+    super.dispose();
+  }
+
+  Future<void> _startSourceRequest() async {
+    final requestId = ++_requestSeed;
+    _activeRequestId = requestId;
+
+    if (widget.filePath == null && widget.points == null) {
+      if (!mounted) return;
+      setState(() {
+        _phase = _PcdViewPhase.idle;
+        _rawPoints = const [];
+        _figures = const [];
+        _errorMessage = null;
+      });
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _phase = widget.filePath != null ? _PcdViewPhase.loading : _PcdViewPhase.preparing;
+        _rawPoints = const [];
+        _figures = const [];
+        _errorMessage = null;
+      });
+    }
+
+    final parseWatch = Stopwatch()..start();
+
+    try {
+      late final List<frb.Point3D> points;
+      if (widget.points != null) {
+        points = List<frb.Point3D>.from(widget.points!);
+        parseWatch.stop();
+        _logViewer(
+          event: 'parse_skipped',
+          requestId: requestId,
+          fileLabel: _sourceLabel,
+          elapsed: parseWatch.elapsed,
+          pointCount: points.length,
+          message: 'using in-memory points',
+        );
+      } else {
+        _logViewer(
+          event: 'parse_start',
+          requestId: requestId,
+          fileLabel: _sourceLabel,
+        );
+        points = await frb.PcdParser.parsePcd(widget.filePath!);
+        parseWatch.stop();
+        _logViewer(
+          event: 'parse_done',
+          requestId: requestId,
+          fileLabel: _sourceLabel,
+          elapsed: parseWatch.elapsed,
+          pointCount: points.length,
+        );
+      }
+
+      if (!_isCurrentRequest(requestId)) {
+        _logViewer(
+          event: 'parse_stale',
+          requestId: requestId,
+          fileLabel: _sourceLabel,
+          pointCount: points.length,
+          message: 'parsed result ignored because a newer request exists',
+        );
+        return;
+      }
+
+      await _prepareScene(
+        requestId: requestId,
+        points: points,
+        showPreparingState: true,
+        reason: 'source',
+        notifyLoaded: true,
+      );
+    } catch (error, stackTrace) {
+      parseWatch.stop();
+      if (!_isCurrentRequest(requestId)) {
+        _logViewer(
+          event: 'parse_stale_error',
+          requestId: requestId,
+          fileLabel: _sourceLabel,
+          elapsed: parseWatch.elapsed,
+          message: 'stale error ignored: $error',
+        );
+        return;
+      }
+
+      _logViewer(
+        event: 'parse_error',
+        requestId: requestId,
+        fileLabel: _sourceLabel,
+        elapsed: parseWatch.elapsed,
+        message: error.toString(),
+        error: error,
+        stackTrace: stackTrace,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _phase = _PcdViewPhase.error;
+        _errorMessage = error.toString();
+      });
+      widget.onError?.call(error.toString());
+    }
+  }
+
+  Future<void> _prepareScene({
+    required int requestId,
+    required List<frb.Point3D> points,
+    required bool showPreparingState,
+    required String reason,
+    required bool notifyLoaded,
+  }) async {
+    if (showPreparingState && mounted) {
+      setState(() {
+        _phase = _PcdViewPhase.preparing;
+      });
+    }
+
+    _logViewer(
+      event: 'prepare_start',
+      requestId: requestId,
+      fileLabel: _sourceLabel,
+      pointCount: points.length,
+      message: 'reason=$reason',
     );
 
-    final figures = useMemoized(() {
-      final list = <Model3D<Model3D<dynamic>>>[];
+    await Future<void>.delayed(Duration.zero);
 
-      // 添加网格
-      if (config.grid.visible) {
-        final gridLines = <Line3D>[];
-        final range = config.grid.range;
-        final step = config.grid.step;
+    final prepareWatch = Stopwatch()..start();
+    final figures = _buildFigures(points, widget.config);
+    prepareWatch.stop();
 
-        // X 方向网格线
-        for (double y = -range; y <= range; y += step) {
-          gridLines.add(Line3D(
+    if (!_isCurrentRequest(requestId)) {
+      _logViewer(
+        event: 'prepare_stale',
+        requestId: requestId,
+        fileLabel: _sourceLabel,
+        elapsed: prepareWatch.elapsed,
+        pointCount: points.length,
+        message: 'prepared scene ignored because a newer request exists',
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _rawPoints = points;
+      _figures = figures;
+      _phase = _PcdViewPhase.ready;
+      _errorMessage = null;
+    });
+
+    _logViewer(
+      event: 'prepare_done',
+      requestId: requestId,
+      fileLabel: _sourceLabel,
+      elapsed: prepareWatch.elapsed,
+      pointCount: points.length,
+      message: 'reason=$reason',
+    );
+
+    if (notifyLoaded) {
+      widget.onLoaded?.call(points.length);
+    }
+  }
+
+  List<Model3D> _buildFigures(List<frb.Point3D> points, ViewerConfig config) {
+    final figures = <Model3D>[];
+
+    if (config.grid.visible) {
+      final gridLines = <Line3D>[];
+      final range = config.grid.range;
+      final step = config.grid.step;
+
+      for (double y = -range; y <= range; y += step) {
+        gridLines.add(
+          Line3D(
             Vector3(-range, y, 0),
             Vector3(range, y, 0),
             width: 1,
             color: config.grid.color,
-          ));
-        }
+          ),
+        );
+      }
 
-        // Y 方向网格线
-        for (double x = -range; x <= range; x += step) {
-          gridLines.add(Line3D(
+      for (double x = -range; x <= range; x += step) {
+        gridLines.add(
+          Line3D(
             Vector3(x, -range, 0),
             Vector3(x, range, 0),
             width: 1,
             color: config.grid.color,
-          ));
-        }
-
-        list.add(Group3D(gridLines));
-      }
-
-      // 添加坐标轴
-      if (config.showAxes) {
-        list.add(
-          Group3D([
-            Line3D(
-              Vector3.zero(),
-              Vector3(config.grid.range / 2, 0, 0),
-              width: 2,
-              color: Colors.red,
-            ),
-            Line3D(
-              Vector3.zero(),
-              Vector3(0, config.grid.range / 2, 0),
-              width: 2,
-              color: Colors.green,
-            ),
-            Line3D(
-              Vector3.zero(),
-              Vector3(0, 0, config.grid.range / 2),
-              width: 2,
-              color: Colors.blue,
-            ),
-          ]),
+          ),
         );
       }
 
-      // 添加点云
-      list.add(Group3D(ditrediPoints));
+      figures.add(Group3D(gridLines));
+    }
 
-      return list;
-    }, [ditrediPoints, config.grid, config.showAxes]);
+    if (config.showAxes) {
+      figures.add(
+        Group3D([
+          Line3D(
+            Vector3.zero(),
+            Vector3(config.grid.range / 2, 0, 0),
+            width: 2,
+            color: Colors.red,
+          ),
+          Line3D(
+            Vector3.zero(),
+            Vector3(0, config.grid.range / 2, 0),
+            width: 2,
+            color: Colors.green,
+          ),
+          Line3D(
+            Vector3.zero(),
+            Vector3(0, 0, config.grid.range / 2),
+            width: 2,
+            color: Colors.blue,
+          ),
+        ]),
+      );
+    }
 
+    figures.add(
+      Group3D(
+        Point3DAdapter.ffiToDitrediList(
+          points,
+          pointSize: config.pointSize,
+        ),
+      ),
+    );
+
+    return figures;
+  }
+
+  DiTreDiController _createController(ViewerConfig config) {
+    return DiTreDiController(
+      rotationX: config.camera.rotationX,
+      rotationY: config.camera.rotationY,
+      userScale: config.camera.zoom,
+      minUserScale: config.camera.minZoom,
+      maxUserScale: config.camera.maxZoom,
+    );
+  }
+
+  bool _isCurrentRequest(int requestId) {
+    return mounted && requestId == _activeRequestId;
+  }
+
+  String get _sourceLabel {
+    final path = widget.filePath;
+    if (path == null || path.isEmpty) {
+      return 'memory';
+    }
+
+    final normalized = path.replaceAll('\\', '/');
+    final segments = normalized.split('/');
+    return segments.isNotEmpty ? segments.last : path;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    switch (_phase) {
+      case _PcdViewPhase.loading:
+        return _StatusView(
+          backgroundColor: widget.config.backgroundColor,
+          title: '正在解析点云文件',
+          subtitle: _sourceLabel,
+          loading: true,
+        );
+      case _PcdViewPhase.preparing:
+        return _StatusView(
+          backgroundColor: widget.config.backgroundColor,
+          title: '正在准备渲染场景',
+          subtitle: _sourceLabel,
+          loading: true,
+        );
+      case _PcdViewPhase.error:
+        return _StatusView(
+          backgroundColor: widget.config.backgroundColor,
+          title: '加载失败',
+          subtitle: _errorMessage ?? '未知错误',
+          loading: false,
+          foregroundColor: Colors.redAccent,
+        );
+      case _PcdViewPhase.ready:
+        if (_figures.isEmpty) {
+          return _StatusView(
+            backgroundColor: widget.config.backgroundColor,
+            title: '没有点云数据',
+            subtitle: _sourceLabel,
+            loading: false,
+          );
+        }
+        return _PcdViewRenderer(
+          controller: _controller,
+          figures: _figures,
+          backgroundColor: widget.config.backgroundColor,
+        );
+      case _PcdViewPhase.idle:
+        return _StatusView(
+          backgroundColor: widget.config.backgroundColor,
+          title: '没有点云数据',
+          subtitle: '请选择一个 PCD 文件',
+          loading: false,
+        );
+    }
+  }
+}
+
+class _PcdViewRenderer extends StatefulWidget {
+  final DiTreDiController controller;
+  final List<Model3D> figures;
+  final Color backgroundColor;
+
+  const _PcdViewRenderer({
+    required this.controller,
+    required this.figures,
+    required this.backgroundColor,
+  });
+
+  @override
+  State<_PcdViewRenderer> createState() => _PcdViewRendererState();
+}
+
+class _PcdViewRendererState extends State<_PcdViewRenderer> {
+  double _lastX = 0;
+  double _lastY = 0;
+  double _scaleBase = 0;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      color: config.backgroundColor,
-      child: DiTreDi(
-        controller: ditrediController,
-        figures: figures,
+      color: widget.backgroundColor,
+      child: Listener(
+        onPointerSignal: (pointerSignal) {
+          if (pointerSignal is PointerScrollEvent) {
+            final viewScale = widget.controller.viewScale == 0 ? 1.0 : widget.controller.viewScale;
+            final scaledDy = pointerSignal.scrollDelta.dy / viewScale;
+            widget.controller.update(
+              userScale: widget.controller.userScale - scaledDy,
+            );
+          }
+        },
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onScaleStart: (details) {
+            _scaleBase = widget.controller.userScale;
+            _lastX = details.localFocalPoint.dx;
+            _lastY = details.localFocalPoint.dy;
+          },
+          onScaleUpdate: (details) {
+            final dx = details.localFocalPoint.dx - _lastX;
+            final dy = details.localFocalPoint.dy - _lastY;
+
+            _lastX = details.localFocalPoint.dx;
+            _lastY = details.localFocalPoint.dy;
+
+            widget.controller.update(
+              userScale: _scaleBase * details.scale,
+              rotationX: widget.controller.rotationX - dy / 2,
+              rotationY: ((widget.controller.rotationY - dx / 2 + 360) % 360).clamp(0, 360),
+            );
+          },
+          child: DiTreDi(
+            controller: widget.controller,
+            figures: widget.figures,
+          ),
+        ),
       ),
     );
   }
+}
+
+class _StatusView extends StatelessWidget {
+  final Color backgroundColor;
+  final String title;
+  final String subtitle;
+  final bool loading;
+  final Color foregroundColor;
+
+  const _StatusView({
+    required this.backgroundColor,
+    required this.title,
+    required this.subtitle,
+    required this.loading,
+    this.foregroundColor = Colors.white70,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: backgroundColor,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (loading)
+                const SizedBox(
+                  height: 36,
+                  width: 36,
+                  child: CircularProgressIndicator(),
+                )
+              else
+                Icon(
+                  Icons.info_outline,
+                  size: 36,
+                  color: foregroundColor,
+                ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: TextStyle(
+                  color: foregroundColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                subtitle,
+                style: TextStyle(color: foregroundColor),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+bool _didSourceChange(PcdView oldWidget, PcdView newWidget) {
+  return oldWidget.filePath != newWidget.filePath || !identical(oldWidget.points, newWidget.points);
+}
+
+bool _didSceneConfigChange(ViewerConfig oldConfig, ViewerConfig newConfig) {
+  return oldConfig.pointSize != newConfig.pointSize ||
+      oldConfig.showAxes != newConfig.showAxes ||
+      oldConfig.grid.visible != newConfig.grid.visible ||
+      oldConfig.grid.range != newConfig.grid.range ||
+      oldConfig.grid.step != newConfig.grid.step ||
+      oldConfig.grid.color != newConfig.grid.color;
+}
+
+void _logViewer({
+  required String event,
+  required int requestId,
+  required String fileLabel,
+  Duration? elapsed,
+  int? pointCount,
+  String? message,
+  Object? error,
+  StackTrace? stackTrace,
+}) {
+  final parts = <String>[
+    'event=$event',
+    'requestId=$requestId',
+    'file=$fileLabel',
+    if (pointCount != null) 'points=$pointCount',
+    if (elapsed != null) 'elapsedMs=${elapsed.inMilliseconds}',
+    if (message != null && message.isNotEmpty) 'message=$message',
+  ];
+
+  developer.log(
+    parts.join(' '),
+    name: 'flutter_pcd_view.viewer',
+    error: error,
+    stackTrace: stackTrace,
+  );
 }

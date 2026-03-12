@@ -61,9 +61,9 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 }
 
 abstract class RustLibApi extends BaseApi {
-  List<Point3D> crateApiParsePcd({required String path});
+  Future<List<Point3D>> crateApiParsePcd({required String path});
 
-  List<Point3D> crateApiParsePcdData({required String content});
+  Future<List<Point3D>> crateApiParsePcdData({required String content});
 }
 
 class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
@@ -75,13 +75,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   });
 
   @override
-  List<Point3D> crateApiParsePcd({required String path}) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
+  Future<List<Point3D>> crateApiParsePcd({required String path}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(path, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 1)!;
+          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 1, port: port_);
         },
         codec: SseCodec(decodeSuccessData: sse_decode_list_point_3_d, decodeErrorData: sse_decode_String),
         constMeta: kCrateApiParsePcdConstMeta,
@@ -94,13 +94,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiParsePcdConstMeta => const TaskConstMeta(debugName: "parse_pcd", argNames: ["path"]);
 
   @override
-  List<Point3D> crateApiParsePcdData({required String content}) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
+  Future<List<Point3D>> crateApiParsePcdData({required String content}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(content, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 2)!;
+          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 2, port: port_);
         },
         codec: SseCodec(decodeSuccessData: sse_decode_list_point_3_d, decodeErrorData: sse_decode_String),
         constMeta: kCrateApiParsePcdDataConstMeta,

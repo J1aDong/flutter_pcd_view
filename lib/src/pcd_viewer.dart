@@ -37,19 +37,21 @@ class _PcdViewerState extends State<PcdViewer> {
     }
   }
 
-  void _parsePcdData() {
+  Future<void> _parsePcdData() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
 
     try {
-      final points = parsePcdData(content: widget.pcdData);
+      final points = await parsePcdData(content: widget.pcdData);
+      if (!mounted) return;
       setState(() {
         _points = points;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
         _isLoading = false;

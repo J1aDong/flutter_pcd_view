@@ -7,6 +7,7 @@ import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'parser.dart';
 
-List<Point3D> parsePcd({required String path}) => RustLib.instance.api.crateApiParsePcd(path: path);
+Future<List<Point3D>> parsePcd({required String path}) => RustLib.instance.api.crateApiParsePcd(path: path);
 
-List<Point3D> parsePcdData({required String content}) => RustLib.instance.api.crateApiParsePcdData(content: content);
+Future<List<Point3D>> parsePcdData({required String content}) =>
+    RustLib.instance.api.crateApiParsePcdData(content: content);
