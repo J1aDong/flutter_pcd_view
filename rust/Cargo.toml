@@ -1,0 +1,18 @@
+[package]
+name = "flutter_pcd_view"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["staticlib", "cdylib"]
+
+[dependencies]
+flutter_rust_bridge = "=2.9.0"
+
+[dev-dependencies]
+tempfile = "3.8"
+
+[profile.release]
+lto = true
+strip = true
+opt-level = "z"
