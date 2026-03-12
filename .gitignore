@@ -107,6 +107,13 @@ unlinked_spec.ds
 # Coverage
 coverage/
 
+# Rust / FFI build artifacts
+rust/target/
+android/src/main/jniLibs/
+
+# Local tooling
+.claude/
+
 # Symbols
 app.*.symbols
 
