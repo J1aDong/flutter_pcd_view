@@ -1,5 +1,233 @@
 import 'package:flutter/material.dart';
 
+/// 点云性能优化配置
+class PerformanceConfig {
+  /// 启用去重（空间哈希）
+  final bool enableDeduplication;
+
+  /// 去重精度（网格单元大小，单位：米）
+  final double dedupPrecision;
+
+  /// 体素大小用于下采样（0 = 禁用）
+  final double voxelSize;
+
+  /// 最大点数（0 = 无限制）
+  final int maxPoints;
+
+  const PerformanceConfig({
+    this.enableDeduplication = false,
+    this.dedupPrecision = 0.001,
+    this.voxelSize = 0.0,
+    this.maxPoints = 0,
+  });
+
+  /// 是否启用任何优化
+  bool get isEnabled =>
+      enableDeduplication || voxelSize > 0.0 || maxPoints > 0;
+
+  PerformanceConfig copyWith({
+    bool? enableDeduplication,
+    double? dedupPrecision,
+    double? voxelSize,
+    int? maxPoints,
+  }) {
+    return PerformanceConfig(
+      enableDeduplication: enableDeduplication ?? this.enableDeduplication,
+      dedupPrecision: dedupPrecision ?? this.dedupPrecision,
+      voxelSize: voxelSize ?? this.voxelSize,
+      maxPoints: maxPoints ?? this.maxPoints,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PerformanceConfig &&
+          runtimeType == other.runtimeType &&
+          enableDeduplication == other.enableDeduplication &&
+          dedupPrecision == other.dedupPrecision &&
+          voxelSize == other.voxelSize &&
+          maxPoints == other.maxPoints;
+
+  @override
+  int get hashCode => Object.hash(
+        enableDeduplication,
+        dedupPrecision,
+        voxelSize,
+        maxPoints,
+      );
+}
+
+/// 统计离群点去除（SOR）配置
+class SORConfig {
+  /// 近邻数量
+  final int k;
+
+  /// 标准差倍数阈值
+  final double stdRatio;
+
+  const SORConfig({
+    this.k = 50,
+    this.stdRatio = 1.0,
+  });
+
+  SORConfig copyWith({
+    int? k,
+    double? stdRatio,
+  }) {
+    return SORConfig(
+      k: k ?? this.k,
+      stdRatio: stdRatio ?? this.stdRatio,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SORConfig &&
+          runtimeType == other.runtimeType &&
+          k == other.k &&
+          stdRatio == other.stdRatio;
+
+  @override
+  int get hashCode => Object.hash(k, stdRatio);
+}
+
+/// 半径离群点去除（ROR）配置
+class RORConfig {
+  /// 搜索半径（单位：米）
+  final double radius;
+
+  /// 最小邻居数
+  final int minNeighbors;
+
+  const RORConfig({
+    this.radius = 0.1,
+    this.minNeighbors = 5,
+  });
+
+  RORConfig copyWith({
+    double? radius,
+    int? minNeighbors,
+  }) {
+    return RORConfig(
+      radius: radius ?? this.radius,
+      minNeighbors: minNeighbors ?? this.minNeighbors,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RORConfig &&
+          runtimeType == other.runtimeType &&
+          radius == other.radius &&
+          minNeighbors == other.minNeighbors;
+
+  @override
+  int get hashCode => Object.hash(radius, minNeighbors);
+}
+
+/// 连接模式
+enum ConnectMode {
+  /// 无连接（仅点）
+  none,
+  /// 顺序连接（按文件顺序）
+  sequential,
+  /// 近邻连接
+  nearestNeighbor,
+}
+
+/// 点连接配置
+class ConnectConfig {
+  /// 连接模式
+  final ConnectMode mode;
+
+  /// 最大连接距离（近邻模式）
+  final double maxDistance;
+
+  /// 最大线段数（顺序模式）
+  final int maxSegments;
+
+  const ConnectConfig({
+    this.mode = ConnectMode.none,
+    this.maxDistance = 0.5,
+    this.maxSegments = 100000,
+  });
+
+  /// 是否启用连接
+  bool get isEnabled => mode != ConnectMode.none;
+
+  ConnectConfig copyWith({
+    ConnectMode? mode,
+    double? maxDistance,
+    int? maxSegments,
+  }) {
+    return ConnectConfig(
+      mode: mode ?? this.mode,
+      maxDistance: maxDistance ?? this.maxDistance,
+      maxSegments: maxSegments ?? this.maxSegments,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ConnectConfig &&
+          runtimeType == other.runtimeType &&
+          mode == other.mode &&
+          maxDistance == other.maxDistance &&
+          maxSegments == other.maxSegments;
+
+  @override
+  int get hashCode => Object.hash(mode, maxDistance, maxSegments);
+}
+
+/// 点云高级处理配置
+class ProcessingConfig {
+  /// SOR 配置（null = 禁用）
+  final SORConfig? sor;
+
+  /// ROR 配置（null = 禁用）
+  final RORConfig? ror;
+
+  /// 连接配置（null = 禁用）
+  final ConnectConfig? connect;
+
+  const ProcessingConfig({
+    this.sor,
+    this.ror,
+    this.connect,
+  });
+
+  /// 是否启用任何处理
+  bool get isEnabled => sor != null || ror != null || (connect?.isEnabled ?? false);
+
+  ProcessingConfig copyWith({
+    SORConfig? sor,
+    RORConfig? ror,
+    ConnectConfig? connect,
+  }) {
+    return ProcessingConfig(
+      sor: sor ?? this.sor,
+      ror: ror ?? this.ror,
+      connect: connect ?? this.connect,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ProcessingConfig &&
+          runtimeType == other.runtimeType &&
+          sor == other.sor &&
+          ror == other.ror &&
+          connect == other.connect;
+
+  @override
+  int get hashCode => Object.hash(sor, ror, connect);
+}
+
 /// 相机初始配置
 class CameraConfig {
   /// 初始旋转 X 角度（弧度）
@@ -97,12 +325,20 @@ class ViewerConfig {
   /// 相机配置
   final CameraConfig camera;
 
+  /// 性能优化配置
+  final PerformanceConfig performance;
+
+  /// 高级处理配置
+  final ProcessingConfig processing;
+
   const ViewerConfig({
     this.pointSize = 2.0,
     this.backgroundColor = Colors.black,
     this.showAxes = true,
     this.grid = const GridConfig(),
     this.camera = const CameraConfig(),
+    this.performance = const PerformanceConfig(),
+    this.processing = const ProcessingConfig(),
   });
 
   ViewerConfig copyWith({
@@ -111,6 +347,8 @@ class ViewerConfig {
     bool? showAxes,
     GridConfig? grid,
     CameraConfig? camera,
+    PerformanceConfig? performance,
+    ProcessingConfig? processing,
   }) {
     return ViewerConfig(
       pointSize: pointSize ?? this.pointSize,
@@ -118,6 +356,8 @@ class ViewerConfig {
       showAxes: showAxes ?? this.showAxes,
       grid: grid ?? this.grid,
       camera: camera ?? this.camera,
+      performance: performance ?? this.performance,
+      processing: processing ?? this.processing,
     );
   }
 
@@ -128,8 +368,10 @@ class ViewerConfig {
           runtimeType == other.runtimeType &&
           pointSize == other.pointSize &&
           backgroundColor == other.backgroundColor &&
-          showAxes == other.showAxes;
+          showAxes == other.showAxes &&
+          performance == other.performance &&
+          processing == other.processing;
 
   @override
-  int get hashCode => Object.hash(pointSize, backgroundColor, showAxes);
+  int get hashCode => Object.hash(pointSize, backgroundColor, showAxes, performance, processing);
 }

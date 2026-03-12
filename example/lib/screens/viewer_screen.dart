@@ -24,6 +24,7 @@ class ViewerScreen extends HookWidget {
     final currentIndex = useState(0);
     final isPlaying = useState(pcdFiles.length > 1);
     final isFrameLoading = useState(true);
+    final optimizationStats = useState<OptimizationStats?>(null);
     final playbackTimer = useRef<Timer?>(null);
 
     useEffect(() {
@@ -84,6 +85,9 @@ class ViewerScreen extends HookWidget {
                 onError: (_) {
                   isFrameLoading.value = false;
                 },
+                onOptimized: (stats) {
+                  optimizationStats.value = stats;
+                },
               ),
             ),
             Positioned(
@@ -91,6 +95,12 @@ class ViewerScreen extends HookWidget {
               top: 16,
               child: _PointSizeControl(configNotifier: configNotifier),
             ),
+            if (optimizationStats.value != null)
+              Positioned(
+                left: 16,
+                bottom: 16,
+                child: _OptimizationStatsCard(stats: optimizationStats.value!),
+              ),
           ],
         ),
       ),
@@ -130,5 +140,64 @@ class _PointSizeControl extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+class _OptimizationStatsCard extends StatelessWidget {
+  final OptimizationStats stats;
+
+  const _OptimizationStatsCard({required this.stats});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: Colors.black87,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.speed, color: Colors.greenAccent, size: 16),
+                SizedBox(width: 4),
+                Text(
+                  '优化统计',
+                  style: TextStyle(
+                    color: Colors.greenAccent,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '原始点数: ${_formatNumber(stats.originalCount)}',
+              style: const TextStyle(color: Colors.white70, fontSize: 11),
+            ),
+            Text(
+              '优化后: ${_formatNumber(stats.finalCount)}',
+              style: const TextStyle(color: Colors.white70, fontSize: 11),
+            ),
+            Text(
+              '减少: ${(stats.reductionRatio * 100).toStringAsFixed(1)}%',
+              style: const TextStyle(color: Colors.greenAccent, fontSize: 11),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatNumber(int n) {
+    if (n >= 1000000) {
+      return '${(n / 1000000).toStringAsFixed(1)}M';
+    } else if (n >= 1000) {
+      return '${(n / 1000).toStringAsFixed(1)}K';
+    }
+    return n.toString();
   }
 }

@@ -10,7 +10,49 @@ import '../config/viewer_config.dart';
 import '../ffi/frb.dart' as frb;
 import '../models/point_3d_adapter.dart';
 
+/// 处理结果统计
+class ProcessingStats {
+  final int originalCount;
+  final int afterSor;
+  final int afterRor;
+  final int finalCount;
+  final int lineCount;
+
+  const ProcessingStats({
+    required this.originalCount,
+    required this.afterSor,
+    required this.afterRor,
+    required this.finalCount,
+    this.lineCount = 0,
+  });
+
+  bool get hasProcessing => originalCount != finalCount;
+  double get reductionRatio =>
+      originalCount > 0 ? (originalCount - finalCount) / originalCount : 0.0;
+}
+
 enum _PcdViewPhase { idle, loading, preparing, ready, error }
+
+/// 优化结果统计
+class OptimizationStats {
+  /// 原始点数
+  final int originalCount;
+
+  /// 优化后点数
+  final int finalCount;
+
+  const OptimizationStats({
+    required this.originalCount,
+    required this.finalCount,
+  });
+
+  /// 是否有优化
+  bool get hasOptimization => originalCount != finalCount;
+
+  /// 减少比例
+  double get reductionRatio =>
+      originalCount > 0 ? (originalCount - finalCount) / originalCount : 0.0;
+}
 
 /// PCD 点云查看器 Widget
 ///
@@ -34,6 +76,12 @@ class PcdView extends StatefulWidget {
   /// 加载完成回调
   final void Function(int pointCount)? onLoaded;
 
+  /// 优化完成回调（仅当启用优化时触发）
+  final void Function(OptimizationStats stats)? onOptimized;
+
+  /// 处理完成回调（仅当启用处理时触发）
+  final void Function(ProcessingStats stats)? onProcessed;
+
   const PcdView.fromPoints({
     super.key,
     required this.points,
@@ -41,6 +89,8 @@ class PcdView extends StatefulWidget {
     this.controller,
     this.onError,
     this.onLoaded,
+    this.onOptimized,
+    this.onProcessed,
   }) : filePath = null;
 
   const PcdView.fromFile({
@@ -50,6 +100,8 @@ class PcdView extends StatefulWidget {
     this.controller,
     this.onError,
     this.onLoaded,
+    this.onOptimized,
+    this.onProcessed,
   }) : points = null;
 
   @override
@@ -63,6 +115,7 @@ class _PcdViewState extends State<PcdView> {
 
   _PcdViewPhase _phase = _PcdViewPhase.idle;
   List<frb.Point3D> _rawPoints = const [];
+  List<frb.LineSegmentData> _lineSegments = const [];
   List<Model3D> _figures = const [];
   String? _errorMessage;
   int _activeRequestId = 0;
@@ -90,6 +143,7 @@ class _PcdViewState extends State<PcdView> {
         _prepareScene(
           requestId: _activeRequestId,
           points: _rawPoints,
+          lines: _lineSegments,
           showPreparingState: false,
           reason: 'config',
           notifyLoaded: false,
@@ -144,11 +198,20 @@ class _PcdViewState extends State<PcdView> {
     }
 
     final parseWatch = Stopwatch()..start();
+    final perfConfig = widget.config.performance;
+    final procConfig = widget.config.processing;
 
     try {
       late final List<frb.Point3D> points;
+      late final List<frb.LineSegmentData> lines;
+      int? originalCount;
+      int? finalCount;
+      int? afterSor;
+      int? afterRor;
+
       if (widget.points != null) {
         points = List<frb.Point3D>.from(widget.points!);
+        lines = const [];
         parseWatch.stop();
         _logViewer(
           event: 'parse_skipped',
@@ -163,8 +226,36 @@ class _PcdViewState extends State<PcdView> {
           event: 'parse_start',
           requestId: requestId,
           fileLabel: _sourceLabel,
+          optimization: perfConfig.isEnabled,
+          processing: procConfig.isEnabled,
         );
-        points = await frb.PcdParser.parsePcd(widget.filePath!);
+
+        if (perfConfig.isEnabled || procConfig.isEnabled) {
+          final optOptions = frb.OptimizationOptions(
+            enableDeduplication: perfConfig.enableDeduplication,
+            dedupPrecision: perfConfig.dedupPrecision,
+            voxelSize: perfConfig.voxelSize,
+            maxPoints: perfConfig.maxPoints,
+          );
+
+          final procOptions = _buildProcessingOptions(procConfig);
+
+          final result = await frb.parsePcdWithProcessing(
+            path: widget.filePath!,
+            optOptions: optOptions,
+            procOptions: procOptions,
+          );
+          points = result.points;
+          lines = result.lineSegments;
+          originalCount = result.originalCount;
+          afterSor = result.afterSor;
+          afterRor = result.afterRor;
+          finalCount = result.finalCount;
+        } else {
+          points = await frb.PcdParser.parsePcd(widget.filePath!);
+          lines = const [];
+        }
+
         parseWatch.stop();
         _logViewer(
           event: 'parse_done',
@@ -172,6 +263,9 @@ class _PcdViewState extends State<PcdView> {
           fileLabel: _sourceLabel,
           elapsed: parseWatch.elapsed,
           pointCount: points.length,
+          originalCount: originalCount,
+          optimization: perfConfig.isEnabled,
+          processing: procConfig.isEnabled,
         );
       }
 
@@ -186,9 +280,29 @@ class _PcdViewState extends State<PcdView> {
         return;
       }
 
+      // Notify optimization stats
+      if (originalCount != null && finalCount != null && widget.onOptimized != null) {
+        widget.onOptimized!.call(OptimizationStats(
+          originalCount: originalCount,
+          finalCount: finalCount,
+        ));
+      }
+
+      // Notify processing stats
+      if (afterSor != null && afterRor != null && widget.onProcessed != null) {
+        widget.onProcessed!.call(ProcessingStats(
+          originalCount: originalCount ?? 0,
+          afterSor: afterSor,
+          afterRor: afterRor,
+          finalCount: finalCount ?? 0,
+          lineCount: lines.length,
+        ));
+      }
+
       await _prepareScene(
         requestId: requestId,
         points: points,
+        lines: lines,
         showPreparingState: true,
         reason: 'source',
         notifyLoaded: true,
@@ -228,6 +342,7 @@ class _PcdViewState extends State<PcdView> {
   Future<void> _prepareScene({
     required int requestId,
     required List<frb.Point3D> points,
+    required List<frb.LineSegmentData> lines,
     required bool showPreparingState,
     required String reason,
     required bool notifyLoaded,
@@ -243,13 +358,14 @@ class _PcdViewState extends State<PcdView> {
       requestId: requestId,
       fileLabel: _sourceLabel,
       pointCount: points.length,
+      lineCount: lines.length,
       message: 'reason=$reason',
     );
 
     await Future<void>.delayed(Duration.zero);
 
     final prepareWatch = Stopwatch()..start();
-    final figures = _buildFigures(points, widget.config);
+    final figures = _buildFigures(points, lines, widget.config);
     prepareWatch.stop();
 
     if (!_isCurrentRequest(requestId)) {
@@ -267,6 +383,7 @@ class _PcdViewState extends State<PcdView> {
     if (!mounted) return;
     setState(() {
       _rawPoints = points;
+      _lineSegments = lines;
       _figures = figures;
       _phase = _PcdViewPhase.ready;
       _errorMessage = null;
@@ -278,6 +395,7 @@ class _PcdViewState extends State<PcdView> {
       fileLabel: _sourceLabel,
       elapsed: prepareWatch.elapsed,
       pointCount: points.length,
+      lineCount: lines.length,
       message: 'reason=$reason',
     );
 
@@ -286,7 +404,36 @@ class _PcdViewState extends State<PcdView> {
     }
   }
 
-  List<Model3D> _buildFigures(List<frb.Point3D> points, ViewerConfig config) {
+  frb.ProcessingOptions _buildProcessingOptions(ProcessingConfig config) {
+    return frb.ProcessingOptions(
+      sor: config.sor != null
+          ? frb.SOROptions(k: config.sor!.k, stdRatio: config.sor!.stdRatio)
+          : null,
+      ror: config.ror != null
+          ? frb.ROROptions(radius: config.ror!.radius, minNeighbors: config.ror!.minNeighbors)
+          : null,
+      connect: config.connect != null && config.connect!.isEnabled
+          ? frb.ConnectOptions(
+              mode: _toConnectModeType(config.connect!.mode),
+              maxDistance: config.connect!.maxDistance,
+              maxSegments: config.connect!.maxSegments,
+            )
+          : null,
+    );
+  }
+
+  frb.ConnectModeType _toConnectModeType(ConnectMode mode) {
+    switch (mode) {
+      case ConnectMode.none:
+        return frb.ConnectModeType.none;
+      case ConnectMode.sequential:
+        return frb.ConnectModeType.sequential;
+      case ConnectMode.nearestNeighbor:
+        return frb.ConnectModeType.nearestNeighbor;
+    }
+  }
+
+  List<Model3D> _buildFigures(List<frb.Point3D> points, List<frb.LineSegmentData> lines, ViewerConfig config) {
     final figures = <Model3D>[];
 
     if (config.grid.visible) {
@@ -342,6 +489,17 @@ class _PcdViewState extends State<PcdView> {
           ),
         ]),
       );
+    }
+
+    // Render line segments from connectivity
+    if (lines.isNotEmpty) {
+      final lineFigures = lines.map((line) => Line3D(
+        Vector3(line.start.x, line.start.y, line.start.z),
+        Vector3(line.end.x, line.end.y, line.end.z),
+        width: 1,
+        color: const Color(0xFF00FF00), // Green lines
+      )).toList();
+      figures.add(Group3D(lineFigures));
     }
 
     figures.add(
@@ -575,6 +733,10 @@ void _logViewer({
   required String fileLabel,
   Duration? elapsed,
   int? pointCount,
+  int? lineCount,
+  int? originalCount,
+  bool? optimization,
+  bool? processing,
   String? message,
   Object? error,
   StackTrace? stackTrace,
@@ -584,6 +746,10 @@ void _logViewer({
     'requestId=$requestId',
     'file=$fileLabel',
     if (pointCount != null) 'points=$pointCount',
+    if (lineCount != null) 'lines=$lineCount',
+    if (originalCount != null) 'original=$originalCount',
+    if (optimization != null) 'optimization=$optimization',
+    if (processing != null) 'processing=$processing',
     if (elapsed != null) 'elapsedMs=${elapsed.inMilliseconds}',
     if (message != null && message.isNotEmpty) 'message=$message',
   ];

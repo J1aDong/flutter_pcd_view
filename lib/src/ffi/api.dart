@@ -7,7 +7,284 @@ import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'parser.dart';
 
+/// Parse a PCD file from path with optional optimization.
 Future<List<Point3D>> parsePcd({required String path}) => RustLib.instance.api.crateApiParsePcd(path: path);
 
+/// Parse a PCD file with optimization options.
+Future<ParseResult> parsePcdWithOptimization({required String path, required OptimizationOptions options}) =>
+    RustLib.instance.api.crateApiParsePcdWithOptimization(path: path, options: options);
+
+/// Parse a PCD file with full processing options (optimization + SOR/ROR + connectivity)
+Future<ProcessingResult> parsePcdWithProcessing({
+  required String path,
+  required OptimizationOptions optOptions,
+  required ProcessingOptions procOptions,
+}) => RustLib.instance.api.crateApiParsePcdWithProcessing(path: path, optOptions: optOptions, procOptions: procOptions);
+
+/// Parse PCD content from string (ASCII format only).
 Future<List<Point3D>> parsePcdData({required String content}) =>
     RustLib.instance.api.crateApiParsePcdData(content: content);
+
+/// Parse PCD content from string with optimization options.
+Future<ParseResult> parsePcdDataWithOptimization({required String content, required OptimizationOptions options}) =>
+    RustLib.instance.api.crateApiParsePcdDataWithOptimization(content: content, options: options);
+
+/// Parse PCD content from string with full processing options
+Future<ProcessingResult> parsePcdDataWithProcessing({
+  required String content,
+  required OptimizationOptions optOptions,
+  required ProcessingOptions procOptions,
+}) => RustLib.instance.api.crateApiParsePcdDataWithProcessing(
+  content: content,
+  optOptions: optOptions,
+  procOptions: procOptions,
+);
+
+/// Connectivity mode for line generation
+enum ConnectModeType {
+  /// No connection (points only)
+  none,
+
+  /// Connect points in file order
+  sequential,
+
+  /// Connect points to nearest neighbors
+  nearestNeighbor;
+
+  static Future<ConnectModeType> default_() => RustLib.instance.api.crateApiConnectModeTypeDefault();
+}
+
+/// Connectivity configuration for line segment generation
+class ConnectOptions {
+  /// Connection mode
+  final ConnectModeType mode;
+
+  /// Maximum distance for nearest neighbor connection
+  final double maxDistance;
+
+  /// Maximum number of line segments (for sequential mode)
+  final int maxSegments;
+
+  const ConnectOptions({required this.mode, required this.maxDistance, required this.maxSegments});
+
+  static Future<ConnectOptions> default_() => RustLib.instance.api.crateApiConnectOptionsDefault();
+
+  @override
+  int get hashCode => mode.hashCode ^ maxDistance.hashCode ^ maxSegments.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ConnectOptions &&
+          runtimeType == other.runtimeType &&
+          mode == other.mode &&
+          maxDistance == other.maxDistance &&
+          maxSegments == other.maxSegments;
+}
+
+/// Line segment for connectivity visualization
+class LineSegmentData {
+  /// Start point
+  final Point3D start;
+
+  /// End point
+  final Point3D end;
+
+  const LineSegmentData({required this.start, required this.end});
+
+  @override
+  int get hashCode => start.hashCode ^ end.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LineSegmentData && runtimeType == other.runtimeType && start == other.start && end == other.end;
+}
+
+/// Optimization configuration for point cloud processing.
+/// All fields have sensible defaults that preserve original behavior.
+class OptimizationOptions {
+  /// Enable duplicate point removal using spatial hashing
+  final bool enableDeduplication;
+
+  /// Precision for deduplication (grid cell size in meters)
+  final double dedupPrecision;
+
+  /// Voxel size for downsampling (0 = disabled)
+  final double voxelSize;
+
+  /// Maximum number of points (0 = no limit)
+  final int maxPoints;
+
+  const OptimizationOptions({
+    required this.enableDeduplication,
+    required this.dedupPrecision,
+    required this.voxelSize,
+    required this.maxPoints,
+  });
+
+  static Future<OptimizationOptions> default_() => RustLib.instance.api.crateApiOptimizationOptionsDefault();
+
+  @override
+  int get hashCode => enableDeduplication.hashCode ^ dedupPrecision.hashCode ^ voxelSize.hashCode ^ maxPoints.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is OptimizationOptions &&
+          runtimeType == other.runtimeType &&
+          enableDeduplication == other.enableDeduplication &&
+          dedupPrecision == other.dedupPrecision &&
+          voxelSize == other.voxelSize &&
+          maxPoints == other.maxPoints;
+}
+
+/// Result of point cloud parsing with optimization statistics.
+class ParseResult {
+  /// Parsed points
+  final List<Point3D> points;
+
+  /// Original point count
+  final int originalCount;
+
+  /// Final point count after optimization
+  final int finalCount;
+
+  const ParseResult({required this.points, required this.originalCount, required this.finalCount});
+
+  @override
+  int get hashCode => points.hashCode ^ originalCount.hashCode ^ finalCount.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ParseResult &&
+          runtimeType == other.runtimeType &&
+          points == other.points &&
+          originalCount == other.originalCount &&
+          finalCount == other.finalCount;
+}
+
+/// Processing configuration for advanced point cloud operations
+class ProcessingOptions {
+  /// Statistical Outlier Removal configuration
+  final SOROptions? sor;
+
+  /// Radius Outlier Removal configuration
+  final ROROptions? ror;
+
+  /// Connectivity configuration
+  final ConnectOptions? connect;
+
+  const ProcessingOptions({this.sor, this.ror, this.connect});
+
+  static Future<ProcessingOptions> default_() => RustLib.instance.api.crateApiProcessingOptionsDefault();
+
+  @override
+  int get hashCode => sor.hashCode ^ ror.hashCode ^ connect.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ProcessingOptions &&
+          runtimeType == other.runtimeType &&
+          sor == other.sor &&
+          ror == other.ror &&
+          connect == other.connect;
+}
+
+/// Result of point cloud parsing with full processing statistics
+class ProcessingResult {
+  /// Parsed points
+  final List<Point3D> points;
+
+  /// Original point count
+  final int originalCount;
+
+  /// Point count after SOR (if applied)
+  final int afterSor;
+
+  /// Point count after ROR (if applied)
+  final int afterRor;
+
+  /// Final point count
+  final int finalCount;
+
+  /// Line segments from connectivity
+  final List<LineSegmentData> lineSegments;
+
+  const ProcessingResult({
+    required this.points,
+    required this.originalCount,
+    required this.afterSor,
+    required this.afterRor,
+    required this.finalCount,
+    required this.lineSegments,
+  });
+
+  @override
+  int get hashCode =>
+      points.hashCode ^
+      originalCount.hashCode ^
+      afterSor.hashCode ^
+      afterRor.hashCode ^
+      finalCount.hashCode ^
+      lineSegments.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ProcessingResult &&
+          runtimeType == other.runtimeType &&
+          points == other.points &&
+          originalCount == other.originalCount &&
+          afterSor == other.afterSor &&
+          afterRor == other.afterRor &&
+          finalCount == other.finalCount &&
+          lineSegments == other.lineSegments;
+}
+
+/// Radius Outlier Removal configuration
+class ROROptions {
+  /// Search radius in meters
+  final double radius;
+
+  /// Minimum number of neighbors required
+  final int minNeighbors;
+
+  const ROROptions({required this.radius, required this.minNeighbors});
+
+  static Future<ROROptions> default_() => RustLib.instance.api.crateApiRorOptionsDefault();
+
+  @override
+  int get hashCode => radius.hashCode ^ minNeighbors.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ROROptions &&
+          runtimeType == other.runtimeType &&
+          radius == other.radius &&
+          minNeighbors == other.minNeighbors;
+}
+
+/// Statistical Outlier Removal configuration
+class SOROptions {
+  /// Number of nearest neighbors to consider
+  final int k;
+
+  /// Standard deviation multiplier threshold
+  final double stdRatio;
+
+  const SOROptions({required this.k, required this.stdRatio});
+
+  static Future<SOROptions> default_() => RustLib.instance.api.crateApiSorOptionsDefault();
+
+  @override
+  int get hashCode => k.hashCode ^ stdRatio.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SOROptions && runtimeType == other.runtimeType && k == other.k && stdRatio == other.stdRatio;
+}

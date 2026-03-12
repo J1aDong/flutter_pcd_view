@@ -25,7 +25,40 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String dco_decode_String(dynamic raw);
 
   @protected
+  bool dco_decode_bool(dynamic raw);
+
+  @protected
+  ConnectOptions dco_decode_box_autoadd_connect_options(dynamic raw);
+
+  @protected
+  OptimizationOptions dco_decode_box_autoadd_optimization_options(dynamic raw);
+
+  @protected
+  ProcessingOptions dco_decode_box_autoadd_processing_options(dynamic raw);
+
+  @protected
+  ROROptions dco_decode_box_autoadd_ror_options(dynamic raw);
+
+  @protected
+  SOROptions dco_decode_box_autoadd_sor_options(dynamic raw);
+
+  @protected
+  ConnectModeType dco_decode_connect_mode_type(dynamic raw);
+
+  @protected
+  ConnectOptions dco_decode_connect_options(dynamic raw);
+
+  @protected
   double dco_decode_f_64(dynamic raw);
+
+  @protected
+  int dco_decode_i_32(dynamic raw);
+
+  @protected
+  LineSegmentData dco_decode_line_segment_data(dynamic raw);
+
+  @protected
+  List<LineSegmentData> dco_decode_list_line_segment_data(dynamic raw);
 
   @protected
   List<Point3D> dco_decode_list_point_3_d(dynamic raw);
@@ -34,7 +67,34 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
+  ConnectOptions? dco_decode_opt_box_autoadd_connect_options(dynamic raw);
+
+  @protected
+  ROROptions? dco_decode_opt_box_autoadd_ror_options(dynamic raw);
+
+  @protected
+  SOROptions? dco_decode_opt_box_autoadd_sor_options(dynamic raw);
+
+  @protected
+  OptimizationOptions dco_decode_optimization_options(dynamic raw);
+
+  @protected
+  ParseResult dco_decode_parse_result(dynamic raw);
+
+  @protected
   Point3D dco_decode_point_3_d(dynamic raw);
+
+  @protected
+  ProcessingOptions dco_decode_processing_options(dynamic raw);
+
+  @protected
+  ProcessingResult dco_decode_processing_result(dynamic raw);
+
+  @protected
+  ROROptions dco_decode_ror_options(dynamic raw);
+
+  @protected
+  SOROptions dco_decode_sor_options(dynamic raw);
 
   @protected
   int dco_decode_u_32(dynamic raw);
@@ -43,10 +103,46 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   int dco_decode_u_8(dynamic raw);
 
   @protected
+  void dco_decode_unit(dynamic raw);
+
+  @protected
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
+  bool sse_decode_bool(SseDeserializer deserializer);
+
+  @protected
+  ConnectOptions sse_decode_box_autoadd_connect_options(SseDeserializer deserializer);
+
+  @protected
+  OptimizationOptions sse_decode_box_autoadd_optimization_options(SseDeserializer deserializer);
+
+  @protected
+  ProcessingOptions sse_decode_box_autoadd_processing_options(SseDeserializer deserializer);
+
+  @protected
+  ROROptions sse_decode_box_autoadd_ror_options(SseDeserializer deserializer);
+
+  @protected
+  SOROptions sse_decode_box_autoadd_sor_options(SseDeserializer deserializer);
+
+  @protected
+  ConnectModeType sse_decode_connect_mode_type(SseDeserializer deserializer);
+
+  @protected
+  ConnectOptions sse_decode_connect_options(SseDeserializer deserializer);
+
+  @protected
   double sse_decode_f_64(SseDeserializer deserializer);
+
+  @protected
+  int sse_decode_i_32(SseDeserializer deserializer);
+
+  @protected
+  LineSegmentData sse_decode_line_segment_data(SseDeserializer deserializer);
+
+  @protected
+  List<LineSegmentData> sse_decode_list_line_segment_data(SseDeserializer deserializer);
 
   @protected
   List<Point3D> sse_decode_list_point_3_d(SseDeserializer deserializer);
@@ -55,7 +151,34 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
+  ConnectOptions? sse_decode_opt_box_autoadd_connect_options(SseDeserializer deserializer);
+
+  @protected
+  ROROptions? sse_decode_opt_box_autoadd_ror_options(SseDeserializer deserializer);
+
+  @protected
+  SOROptions? sse_decode_opt_box_autoadd_sor_options(SseDeserializer deserializer);
+
+  @protected
+  OptimizationOptions sse_decode_optimization_options(SseDeserializer deserializer);
+
+  @protected
+  ParseResult sse_decode_parse_result(SseDeserializer deserializer);
+
+  @protected
   Point3D sse_decode_point_3_d(SseDeserializer deserializer);
+
+  @protected
+  ProcessingOptions sse_decode_processing_options(SseDeserializer deserializer);
+
+  @protected
+  ProcessingResult sse_decode_processing_result(SseDeserializer deserializer);
+
+  @protected
+  ROROptions sse_decode_ror_options(SseDeserializer deserializer);
+
+  @protected
+  SOROptions sse_decode_sor_options(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_32(SseDeserializer deserializer);
@@ -64,16 +187,46 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   int sse_decode_u_8(SseDeserializer deserializer);
 
   @protected
-  int sse_decode_i_32(SseDeserializer deserializer);
-
-  @protected
-  bool sse_decode_bool(SseDeserializer deserializer);
+  void sse_decode_unit(SseDeserializer deserializer);
 
   @protected
   void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
+  void sse_encode_bool(bool self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_connect_options(ConnectOptions self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_optimization_options(OptimizationOptions self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_processing_options(ProcessingOptions self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_ror_options(ROROptions self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_sor_options(SOROptions self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_connect_mode_type(ConnectModeType self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_connect_options(ConnectOptions self, SseSerializer serializer);
+
+  @protected
   void sse_encode_f_64(double self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_i_32(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_line_segment_data(LineSegmentData self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_line_segment_data(List<LineSegmentData> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_point_3_d(List<Point3D> self, SseSerializer serializer);
@@ -82,7 +235,34 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_prim_u_8_strict(Uint8List self, SseSerializer serializer);
 
   @protected
+  void sse_encode_opt_box_autoadd_connect_options(ConnectOptions? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_ror_options(ROROptions? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_sor_options(SOROptions? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_optimization_options(OptimizationOptions self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_parse_result(ParseResult self, SseSerializer serializer);
+
+  @protected
   void sse_encode_point_3_d(Point3D self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_processing_options(ProcessingOptions self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_processing_result(ProcessingResult self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_ror_options(ROROptions self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_sor_options(SOROptions self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_32(int self, SseSerializer serializer);
@@ -91,10 +271,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_u_8(int self, SseSerializer serializer);
 
   @protected
-  void sse_encode_i_32(int self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_bool(bool self, SseSerializer serializer);
+  void sse_encode_unit(void self, SseSerializer serializer);
 }
 
 // Section: wire_class

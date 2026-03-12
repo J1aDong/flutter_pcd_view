@@ -51,7 +51,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.9.0';
 
   @override
-  int get rustContentHash => -387833119;
+  int get rustContentHash => 451689992;
 
   static const kDefaultExternalLibraryLoaderConfig = ExternalLibraryLoaderConfig(
     stem: 'flutter_pcd_view',
@@ -61,9 +61,40 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 }
 
 abstract class RustLibApi extends BaseApi {
+  Future<ConnectModeType> crateApiConnectModeTypeDefault();
+
+  Future<ConnectOptions> crateApiConnectOptionsDefault();
+
+  Future<OptimizationOptions> crateApiOptimizationOptionsDefault();
+
   Future<List<Point3D>> crateApiParsePcd({required String path});
 
   Future<List<Point3D>> crateApiParsePcdData({required String content});
+
+  Future<ParseResult> crateApiParsePcdDataWithOptimization({
+    required String content,
+    required OptimizationOptions options,
+  });
+
+  Future<ProcessingResult> crateApiParsePcdDataWithProcessing({
+    required String content,
+    required OptimizationOptions optOptions,
+    required ProcessingOptions procOptions,
+  });
+
+  Future<ParseResult> crateApiParsePcdWithOptimization({required String path, required OptimizationOptions options});
+
+  Future<ProcessingResult> crateApiParsePcdWithProcessing({
+    required String path,
+    required OptimizationOptions optOptions,
+    required ProcessingOptions procOptions,
+  });
+
+  Future<ProcessingOptions> crateApiProcessingOptionsDefault();
+
+  Future<ROROptions> crateApiRorOptionsDefault();
+
+  Future<SOROptions> crateApiSorOptionsDefault();
 }
 
 class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
@@ -75,13 +106,70 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   });
 
   @override
+  Future<ConnectModeType> crateApiConnectModeTypeDefault() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 1, port: port_);
+        },
+        codec: SseCodec(decodeSuccessData: sse_decode_connect_mode_type, decodeErrorData: null),
+        constMeta: kCrateApiConnectModeTypeDefaultConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiConnectModeTypeDefaultConstMeta =>
+      const TaskConstMeta(debugName: "connect_mode_type_default", argNames: []);
+
+  @override
+  Future<ConnectOptions> crateApiConnectOptionsDefault() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 2, port: port_);
+        },
+        codec: SseCodec(decodeSuccessData: sse_decode_connect_options, decodeErrorData: null),
+        constMeta: kCrateApiConnectOptionsDefaultConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiConnectOptionsDefaultConstMeta =>
+      const TaskConstMeta(debugName: "connect_options_default", argNames: []);
+
+  @override
+  Future<OptimizationOptions> crateApiOptimizationOptionsDefault() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 3, port: port_);
+        },
+        codec: SseCodec(decodeSuccessData: sse_decode_optimization_options, decodeErrorData: null),
+        constMeta: kCrateApiOptimizationOptionsDefaultConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiOptimizationOptionsDefaultConstMeta =>
+      const TaskConstMeta(debugName: "optimization_options_default", argNames: []);
+
+  @override
   Future<List<Point3D>> crateApiParsePcd({required String path}) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(path, serializer);
-          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 1, port: port_);
+          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 4, port: port_);
         },
         codec: SseCodec(decodeSuccessData: sse_decode_list_point_3_d, decodeErrorData: sse_decode_String),
         constMeta: kCrateApiParsePcdConstMeta,
@@ -100,7 +188,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(content, serializer);
-          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 2, port: port_);
+          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 5, port: port_);
         },
         codec: SseCodec(decodeSuccessData: sse_decode_list_point_3_d, decodeErrorData: sse_decode_String),
         constMeta: kCrateApiParsePcdDataConstMeta,
@@ -113,6 +201,162 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiParsePcdDataConstMeta =>
       const TaskConstMeta(debugName: "parse_pcd_data", argNames: ["content"]);
 
+  @override
+  Future<ParseResult> crateApiParsePcdDataWithOptimization({
+    required String content,
+    required OptimizationOptions options,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(content, serializer);
+          sse_encode_box_autoadd_optimization_options(options, serializer);
+          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 6, port: port_);
+        },
+        codec: SseCodec(decodeSuccessData: sse_decode_parse_result, decodeErrorData: sse_decode_String),
+        constMeta: kCrateApiParsePcdDataWithOptimizationConstMeta,
+        argValues: [content, options],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiParsePcdDataWithOptimizationConstMeta =>
+      const TaskConstMeta(debugName: "parse_pcd_data_with_optimization", argNames: ["content", "options"]);
+
+  @override
+  Future<ProcessingResult> crateApiParsePcdDataWithProcessing({
+    required String content,
+    required OptimizationOptions optOptions,
+    required ProcessingOptions procOptions,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(content, serializer);
+          sse_encode_box_autoadd_optimization_options(optOptions, serializer);
+          sse_encode_box_autoadd_processing_options(procOptions, serializer);
+          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 7, port: port_);
+        },
+        codec: SseCodec(decodeSuccessData: sse_decode_processing_result, decodeErrorData: sse_decode_String),
+        constMeta: kCrateApiParsePcdDataWithProcessingConstMeta,
+        argValues: [content, optOptions, procOptions],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiParsePcdDataWithProcessingConstMeta => const TaskConstMeta(
+    debugName: "parse_pcd_data_with_processing",
+    argNames: ["content", "optOptions", "procOptions"],
+  );
+
+  @override
+  Future<ParseResult> crateApiParsePcdWithOptimization({required String path, required OptimizationOptions options}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(path, serializer);
+          sse_encode_box_autoadd_optimization_options(options, serializer);
+          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 8, port: port_);
+        },
+        codec: SseCodec(decodeSuccessData: sse_decode_parse_result, decodeErrorData: sse_decode_String),
+        constMeta: kCrateApiParsePcdWithOptimizationConstMeta,
+        argValues: [path, options],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiParsePcdWithOptimizationConstMeta =>
+      const TaskConstMeta(debugName: "parse_pcd_with_optimization", argNames: ["path", "options"]);
+
+  @override
+  Future<ProcessingResult> crateApiParsePcdWithProcessing({
+    required String path,
+    required OptimizationOptions optOptions,
+    required ProcessingOptions procOptions,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(path, serializer);
+          sse_encode_box_autoadd_optimization_options(optOptions, serializer);
+          sse_encode_box_autoadd_processing_options(procOptions, serializer);
+          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 9, port: port_);
+        },
+        codec: SseCodec(decodeSuccessData: sse_decode_processing_result, decodeErrorData: sse_decode_String),
+        constMeta: kCrateApiParsePcdWithProcessingConstMeta,
+        argValues: [path, optOptions, procOptions],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiParsePcdWithProcessingConstMeta =>
+      const TaskConstMeta(debugName: "parse_pcd_with_processing", argNames: ["path", "optOptions", "procOptions"]);
+
+  @override
+  Future<ProcessingOptions> crateApiProcessingOptionsDefault() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 10, port: port_);
+        },
+        codec: SseCodec(decodeSuccessData: sse_decode_processing_options, decodeErrorData: null),
+        constMeta: kCrateApiProcessingOptionsDefaultConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProcessingOptionsDefaultConstMeta =>
+      const TaskConstMeta(debugName: "processing_options_default", argNames: []);
+
+  @override
+  Future<ROROptions> crateApiRorOptionsDefault() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 11, port: port_);
+        },
+        codec: SseCodec(decodeSuccessData: sse_decode_ror_options, decodeErrorData: null),
+        constMeta: kCrateApiRorOptionsDefaultConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiRorOptionsDefaultConstMeta =>
+      const TaskConstMeta(debugName: "ror_options_default", argNames: []);
+
+  @override
+  Future<SOROptions> crateApiSorOptionsDefault() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 12, port: port_);
+        },
+        codec: SseCodec(decodeSuccessData: sse_decode_sor_options, decodeErrorData: null),
+        constMeta: kCrateApiSorOptionsDefaultConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSorOptionsDefaultConstMeta =>
+      const TaskConstMeta(debugName: "sor_options_default", argNames: []);
+
   @protected
   String dco_decode_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
@@ -120,9 +364,83 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  bool dco_decode_bool(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as bool;
+  }
+
+  @protected
+  ConnectOptions dco_decode_box_autoadd_connect_options(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_connect_options(raw);
+  }
+
+  @protected
+  OptimizationOptions dco_decode_box_autoadd_optimization_options(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_optimization_options(raw);
+  }
+
+  @protected
+  ProcessingOptions dco_decode_box_autoadd_processing_options(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_processing_options(raw);
+  }
+
+  @protected
+  ROROptions dco_decode_box_autoadd_ror_options(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_ror_options(raw);
+  }
+
+  @protected
+  SOROptions dco_decode_box_autoadd_sor_options(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_sor_options(raw);
+  }
+
+  @protected
+  ConnectModeType dco_decode_connect_mode_type(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return ConnectModeType.values[raw as int];
+  }
+
+  @protected
+  ConnectOptions dco_decode_connect_options(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3) throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return ConnectOptions(
+      mode: dco_decode_connect_mode_type(arr[0]),
+      maxDistance: dco_decode_f_64(arr[1]),
+      maxSegments: dco_decode_i_32(arr[2]),
+    );
+  }
+
+  @protected
   double dco_decode_f_64(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as double;
+  }
+
+  @protected
+  int dco_decode_i_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
+  }
+
+  @protected
+  LineSegmentData dco_decode_line_segment_data(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2) throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return LineSegmentData(start: dco_decode_point_3_d(arr[0]), end: dco_decode_point_3_d(arr[1]));
+  }
+
+  @protected
+  List<LineSegmentData> dco_decode_list_line_segment_data(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_line_segment_data).toList();
   }
 
   @protected
@@ -135,6 +453,49 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
+  }
+
+  @protected
+  ConnectOptions? dco_decode_opt_box_autoadd_connect_options(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_connect_options(raw);
+  }
+
+  @protected
+  ROROptions? dco_decode_opt_box_autoadd_ror_options(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_ror_options(raw);
+  }
+
+  @protected
+  SOROptions? dco_decode_opt_box_autoadd_sor_options(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_sor_options(raw);
+  }
+
+  @protected
+  OptimizationOptions dco_decode_optimization_options(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4) throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return OptimizationOptions(
+      enableDeduplication: dco_decode_bool(arr[0]),
+      dedupPrecision: dco_decode_f_64(arr[1]),
+      voxelSize: dco_decode_f_64(arr[2]),
+      maxPoints: dco_decode_i_32(arr[3]),
+    );
+  }
+
+  @protected
+  ParseResult dco_decode_parse_result(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3) throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return ParseResult(
+      points: dco_decode_list_point_3_d(arr[0]),
+      originalCount: dco_decode_i_32(arr[1]),
+      finalCount: dco_decode_i_32(arr[2]),
+    );
   }
 
   @protected
@@ -151,6 +512,49 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ProcessingOptions dco_decode_processing_options(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3) throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return ProcessingOptions(
+      sor: dco_decode_opt_box_autoadd_sor_options(arr[0]),
+      ror: dco_decode_opt_box_autoadd_ror_options(arr[1]),
+      connect: dco_decode_opt_box_autoadd_connect_options(arr[2]),
+    );
+  }
+
+  @protected
+  ProcessingResult dco_decode_processing_result(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 6) throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    return ProcessingResult(
+      points: dco_decode_list_point_3_d(arr[0]),
+      originalCount: dco_decode_i_32(arr[1]),
+      afterSor: dco_decode_i_32(arr[2]),
+      afterRor: dco_decode_i_32(arr[3]),
+      finalCount: dco_decode_i_32(arr[4]),
+      lineSegments: dco_decode_list_line_segment_data(arr[5]),
+    );
+  }
+
+  @protected
+  ROROptions dco_decode_ror_options(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2) throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return ROROptions(radius: dco_decode_f_64(arr[0]), minNeighbors: dco_decode_i_32(arr[1]));
+  }
+
+  @protected
+  SOROptions dco_decode_sor_options(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2) throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return SOROptions(k: dco_decode_i_32(arr[0]), stdRatio: dco_decode_f_64(arr[1]));
+  }
+
+  @protected
   int dco_decode_u_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as int;
@@ -163,6 +567,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void dco_decode_unit(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return;
+  }
+
+  @protected
   String sse_decode_String(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var inner = sse_decode_list_prim_u_8_strict(deserializer);
@@ -170,9 +580,87 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  bool sse_decode_bool(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint8() != 0;
+  }
+
+  @protected
+  ConnectOptions sse_decode_box_autoadd_connect_options(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_connect_options(deserializer));
+  }
+
+  @protected
+  OptimizationOptions sse_decode_box_autoadd_optimization_options(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_optimization_options(deserializer));
+  }
+
+  @protected
+  ProcessingOptions sse_decode_box_autoadd_processing_options(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_processing_options(deserializer));
+  }
+
+  @protected
+  ROROptions sse_decode_box_autoadd_ror_options(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_ror_options(deserializer));
+  }
+
+  @protected
+  SOROptions sse_decode_box_autoadd_sor_options(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_sor_options(deserializer));
+  }
+
+  @protected
+  ConnectModeType sse_decode_connect_mode_type(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return ConnectModeType.values[inner];
+  }
+
+  @protected
+  ConnectOptions sse_decode_connect_options(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_mode = sse_decode_connect_mode_type(deserializer);
+    var var_maxDistance = sse_decode_f_64(deserializer);
+    var var_maxSegments = sse_decode_i_32(deserializer);
+    return ConnectOptions(mode: var_mode, maxDistance: var_maxDistance, maxSegments: var_maxSegments);
+  }
+
+  @protected
   double sse_decode_f_64(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getFloat64();
+  }
+
+  @protected
+  int sse_decode_i_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getInt32();
+  }
+
+  @protected
+  LineSegmentData sse_decode_line_segment_data(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_start = sse_decode_point_3_d(deserializer);
+    var var_end = sse_decode_point_3_d(deserializer);
+    return LineSegmentData(start: var_start, end: var_end);
+  }
+
+  @protected
+  List<LineSegmentData> sse_decode_list_line_segment_data(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <LineSegmentData>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_line_segment_data(deserializer));
+    }
+    return ans_;
   }
 
   @protected
@@ -195,6 +683,63 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ConnectOptions? sse_decode_opt_box_autoadd_connect_options(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_connect_options(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  ROROptions? sse_decode_opt_box_autoadd_ror_options(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_ror_options(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  SOROptions? sse_decode_opt_box_autoadd_sor_options(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_sor_options(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  OptimizationOptions sse_decode_optimization_options(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_enableDeduplication = sse_decode_bool(deserializer);
+    var var_dedupPrecision = sse_decode_f_64(deserializer);
+    var var_voxelSize = sse_decode_f_64(deserializer);
+    var var_maxPoints = sse_decode_i_32(deserializer);
+    return OptimizationOptions(
+      enableDeduplication: var_enableDeduplication,
+      dedupPrecision: var_dedupPrecision,
+      voxelSize: var_voxelSize,
+      maxPoints: var_maxPoints,
+    );
+  }
+
+  @protected
+  ParseResult sse_decode_parse_result(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_points = sse_decode_list_point_3_d(deserializer);
+    var var_originalCount = sse_decode_i_32(deserializer);
+    var var_finalCount = sse_decode_i_32(deserializer);
+    return ParseResult(points: var_points, originalCount: var_originalCount, finalCount: var_finalCount);
+  }
+
+  @protected
   Point3D sse_decode_point_3_d(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_x = sse_decode_f_64(deserializer);
@@ -202,6 +747,50 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_z = sse_decode_f_64(deserializer);
     var var_color = sse_decode_u_32(deserializer);
     return Point3D(x: var_x, y: var_y, z: var_z, color: var_color);
+  }
+
+  @protected
+  ProcessingOptions sse_decode_processing_options(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_sor = sse_decode_opt_box_autoadd_sor_options(deserializer);
+    var var_ror = sse_decode_opt_box_autoadd_ror_options(deserializer);
+    var var_connect = sse_decode_opt_box_autoadd_connect_options(deserializer);
+    return ProcessingOptions(sor: var_sor, ror: var_ror, connect: var_connect);
+  }
+
+  @protected
+  ProcessingResult sse_decode_processing_result(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_points = sse_decode_list_point_3_d(deserializer);
+    var var_originalCount = sse_decode_i_32(deserializer);
+    var var_afterSor = sse_decode_i_32(deserializer);
+    var var_afterRor = sse_decode_i_32(deserializer);
+    var var_finalCount = sse_decode_i_32(deserializer);
+    var var_lineSegments = sse_decode_list_line_segment_data(deserializer);
+    return ProcessingResult(
+      points: var_points,
+      originalCount: var_originalCount,
+      afterSor: var_afterSor,
+      afterRor: var_afterRor,
+      finalCount: var_finalCount,
+      lineSegments: var_lineSegments,
+    );
+  }
+
+  @protected
+  ROROptions sse_decode_ror_options(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_radius = sse_decode_f_64(deserializer);
+    var var_minNeighbors = sse_decode_i_32(deserializer);
+    return ROROptions(radius: var_radius, minNeighbors: var_minNeighbors);
+  }
+
+  @protected
+  SOROptions sse_decode_sor_options(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_k = sse_decode_i_32(deserializer);
+    var var_stdRatio = sse_decode_f_64(deserializer);
+    return SOROptions(k: var_k, stdRatio: var_stdRatio);
   }
 
   @protected
@@ -217,15 +806,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  int sse_decode_i_32(SseDeserializer deserializer) {
+  void sse_decode_unit(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    return deserializer.buffer.getInt32();
-  }
-
-  @protected
-  bool sse_decode_bool(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return deserializer.buffer.getUint8() != 0;
   }
 
   @protected
@@ -235,9 +817,81 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_bool(bool self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint8(self ? 1 : 0);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_connect_options(ConnectOptions self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_connect_options(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_optimization_options(OptimizationOptions self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_optimization_options(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_processing_options(ProcessingOptions self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_processing_options(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_ror_options(ROROptions self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_ror_options(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_sor_options(SOROptions self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_sor_options(self, serializer);
+  }
+
+  @protected
+  void sse_encode_connect_mode_type(ConnectModeType self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_connect_options(ConnectOptions self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_connect_mode_type(self.mode, serializer);
+    sse_encode_f_64(self.maxDistance, serializer);
+    sse_encode_i_32(self.maxSegments, serializer);
+  }
+
+  @protected
   void sse_encode_f_64(double self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putFloat64(self);
+  }
+
+  @protected
+  void sse_encode_i_32(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putInt32(self);
+  }
+
+  @protected
+  void sse_encode_line_segment_data(LineSegmentData self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_point_3_d(self.start, serializer);
+    sse_encode_point_3_d(self.end, serializer);
+  }
+
+  @protected
+  void sse_encode_list_line_segment_data(List<LineSegmentData> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_line_segment_data(item, serializer);
+    }
   }
 
   @protected
@@ -257,12 +911,92 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_opt_box_autoadd_connect_options(ConnectOptions? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_connect_options(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_ror_options(ROROptions? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_ror_options(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_sor_options(SOROptions? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_sor_options(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_optimization_options(OptimizationOptions self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_bool(self.enableDeduplication, serializer);
+    sse_encode_f_64(self.dedupPrecision, serializer);
+    sse_encode_f_64(self.voxelSize, serializer);
+    sse_encode_i_32(self.maxPoints, serializer);
+  }
+
+  @protected
+  void sse_encode_parse_result(ParseResult self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_point_3_d(self.points, serializer);
+    sse_encode_i_32(self.originalCount, serializer);
+    sse_encode_i_32(self.finalCount, serializer);
+  }
+
+  @protected
   void sse_encode_point_3_d(Point3D self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_f_64(self.x, serializer);
     sse_encode_f_64(self.y, serializer);
     sse_encode_f_64(self.z, serializer);
     sse_encode_u_32(self.color, serializer);
+  }
+
+  @protected
+  void sse_encode_processing_options(ProcessingOptions self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_opt_box_autoadd_sor_options(self.sor, serializer);
+    sse_encode_opt_box_autoadd_ror_options(self.ror, serializer);
+    sse_encode_opt_box_autoadd_connect_options(self.connect, serializer);
+  }
+
+  @protected
+  void sse_encode_processing_result(ProcessingResult self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_point_3_d(self.points, serializer);
+    sse_encode_i_32(self.originalCount, serializer);
+    sse_encode_i_32(self.afterSor, serializer);
+    sse_encode_i_32(self.afterRor, serializer);
+    sse_encode_i_32(self.finalCount, serializer);
+    sse_encode_list_line_segment_data(self.lineSegments, serializer);
+  }
+
+  @protected
+  void sse_encode_ror_options(ROROptions self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_f_64(self.radius, serializer);
+    sse_encode_i_32(self.minNeighbors, serializer);
+  }
+
+  @protected
+  void sse_encode_sor_options(SOROptions self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.k, serializer);
+    sse_encode_f_64(self.stdRatio, serializer);
   }
 
   @protected
@@ -278,14 +1012,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_i_32(int self, SseSerializer serializer) {
+  void sse_encode_unit(void self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    serializer.buffer.putInt32(self);
-  }
-
-  @protected
-  void sse_encode_bool(bool self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    serializer.buffer.putUint8(self ? 1 : 0);
   }
 }

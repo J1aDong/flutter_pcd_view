@@ -4,7 +4,19 @@ import 'api.dart' as api;
 
 // Re-export generated types
 export 'parser.dart' show Point3D;
-export 'api.dart' show parsePcd;
+export 'api.dart' show
+    parsePcd,
+    parsePcdWithOptimization,
+    parsePcdWithProcessing,
+    OptimizationOptions,
+    ParseResult,
+    ProcessingOptions,
+    ProcessingResult,
+    SOROptions,
+    ROROptions,
+    ConnectOptions,
+    ConnectModeType,
+    LineSegmentData;
 
 /// PCD parser interface
 class PcdParser {
@@ -25,6 +37,22 @@ class PcdParser {
 
     try {
       return api.parsePcd(path: path);
+    } catch (e) {
+      throw Exception('Failed to parse PCD file: $e');
+    }
+  }
+
+  /// Parse PCD file with optimization options
+  static Future<api.ParseResult> parsePcdWithOptimization(
+    String path,
+    api.OptimizationOptions options,
+  ) async {
+    if (!_initialized) {
+      await initialize();
+    }
+
+    try {
+      return api.parsePcdWithOptimization(path: path, options: options);
     } catch (e) {
       throw Exception('Failed to parse PCD file: $e');
     }

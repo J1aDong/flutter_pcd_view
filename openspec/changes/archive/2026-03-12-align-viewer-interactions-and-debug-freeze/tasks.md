@@ -16,5 +16,5 @@
 
 - [x] 3.1 为 parse / prepare / navigation cancel-stale 三段关键路径增加统一结构化日志
 - [x] 3.2 为大文件加载中的 loading/error 状态补充用户可见反馈
-- [ ] 3.3 使用 `pointcloud_map.pcd` 验证 Android 真机上的打开、缩放旋转、返回路径是否仍卡顿
-- [ ] 3.4 复测点大小调整、文件切换和多文件播放，确认不会触发新的明显阻塞
+- [x] 3.3 使用 `pointcloud_map.pcd` 验证 Android 真机上的打开、缩放旋转、返回路径是否仍卡顿
+- [x] 3.4 复测点大小调整、文件切换和多文件播放，确认不会触发新的明显阻塞
