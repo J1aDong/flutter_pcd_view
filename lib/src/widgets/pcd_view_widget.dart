@@ -99,8 +99,9 @@ class _PcdViewState extends State<PcdView> {
   double _nativeZoom = 1.0;
 
   NativeCameraController get _controller => widget.controller ?? _internalController;
-  bool get _supportsNativeRenderer =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  bool get _supportsNativeRenderer => !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
 
   @override
   void initState() {
@@ -114,7 +115,7 @@ class _PcdViewState extends State<PcdView> {
       unawaited(_startSourceRequest());
     } else {
       _phase = _PcdViewPhase.error;
-      _errorMessage = '当前仅支持 Android 原生渲染，iOS Metal 待补';
+      _errorMessage = '当前仅支持 Android / iOS 原生渲染';
     }
   }
 

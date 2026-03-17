@@ -17,10 +17,10 @@ class PerformanceConfig {
   /// 最大点数（0 = 无限制）
   final int maxPoints;
 
-  /// Android native renderer 的点预算（0 = 使用全部点）
+  /// 移动端 native renderer 的点预算（0 = 使用全部点）
   final int nativePointBudget;
 
-  /// Android native texture 的渲染比例（1.0 = 原尺寸）
+  /// 移动端 native texture 的渲染比例（1.0 = 原尺寸）
   final double nativeRenderScale;
 
   const PerformanceConfig({

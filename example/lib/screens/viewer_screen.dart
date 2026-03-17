@@ -131,7 +131,14 @@ class _RendererModeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final config = configNotifier.config;
-    final isAndroidNative = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    final supportsNative = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS);
+    final rendererLabel = switch (defaultTargetPlatform) {
+      TargetPlatform.android => 'Android Native',
+      TargetPlatform.iOS => 'iOS Metal',
+      _ => '不支持',
+    };
 
     return Card(
       color: Colors.black.withValues(alpha: 0.72),
@@ -145,15 +152,15 @@ class _RendererModeCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  isAndroidNative ? Icons.memory : Icons.layers,
+                  supportsNative ? Icons.memory : Icons.layers,
                   size: 16,
-                  color: isAndroidNative ? Colors.lightGreenAccent : Colors.orangeAccent,
+                  color: supportsNative ? Colors.lightGreenAccent : Colors.orangeAccent,
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  isAndroidNative ? 'Android Native' : 'Fallback Renderer',
+                  supportsNative ? rendererLabel : '不支持的平台',
                   style: TextStyle(
-                    color: isAndroidNative ? Colors.lightGreenAccent : Colors.orangeAccent,
+                    color: supportsNative ? Colors.lightGreenAccent : Colors.orangeAccent,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),

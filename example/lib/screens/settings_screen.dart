@@ -285,7 +285,7 @@ class _NativePointBudgetInput extends HookWidget {
 
     return ListTile(
       title: const Text('原生渲染点预算'),
-      subtitle: const Text('Android native renderer 实际绘制点数上限（0 = 不限制）'),
+      subtitle: const Text('移动端 native renderer 实际绘制点数上限（0 = 不限制）'),
       trailing: SizedBox(
         width: 100,
         child: TextField(

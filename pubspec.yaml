@@ -30,6 +30,9 @@ flutter:
         package: com.example.flutter_pcd_view
         pluginClass: FlutterPcdViewPlugin
         ffiPlugin: true
+      ios:
+        pluginClass: FlutterPcdViewPlugin
+        ffiPlugin: true
 
   # To add assets to your package, add an assets section, like this:
   # assets:

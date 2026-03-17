@@ -38,4 +38,4 @@
 - [ ] 6.2 验证高点数场景下的旋转、缩放和切换文件流畅度（已完成一轮手势真机调试，切换文件与更完整流畅度复测仍待继续）
 - [ ] 6.3 验证 `fromFile` 与 `fromPoints` 两种入口都能正确进入 Android native renderer（`fromFile` 已验证，`fromPoints` 仍待单独补测）
 - [x] 6.4 运行 Flutter / Rust / Android 相关静态检查与测试，修复回归问题
-- [ ] 6.5 在 Android 渲染链稳定后补齐 iOS Metal 的 texture 桥接与渲染实现
+- [x] 6.5 在 Android 渲染链稳定后补齐 iOS Metal 的 texture 桥接与渲染实现
