@@ -219,16 +219,20 @@ private final class IosPointCloudRenderer: NSObject, FlutterTexture {
         self.commandQueue = commandQueue
 
         let library = try device.makeLibrary(source: Self.shaderSource, options: nil)
-        let vertexFunction = library.makeFunction(name: "vertex_main")
+        let pointVertexFunction = library.makeFunction(name: "point_vertex_main")
+        let lineVertexFunction = library.makeFunction(name: "line_vertex_main")
         let pointFragment = library.makeFunction(name: "point_fragment")
         let lineFragment = library.makeFunction(name: "line_fragment")
 
-        guard let vertexFunction, let pointFragment, let lineFragment else {
+        guard let pointVertexFunction,
+              let lineVertexFunction,
+              let pointFragment,
+              let lineFragment else {
             throw RendererError(message: "Failed to create Metal shader functions")
         }
 
         let pointDescriptor = MTLRenderPipelineDescriptor()
-        pointDescriptor.vertexFunction = vertexFunction
+        pointDescriptor.vertexFunction = pointVertexFunction
         pointDescriptor.fragmentFunction = pointFragment
         pointDescriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
         pointDescriptor.depthAttachmentPixelFormat = .depth32Float
@@ -236,7 +240,7 @@ private final class IosPointCloudRenderer: NSObject, FlutterTexture {
         pointDescriptor.vertexDescriptor = Self.vertexDescriptor
 
         let lineDescriptor = MTLRenderPipelineDescriptor()
-        lineDescriptor.vertexFunction = vertexFunction
+        lineDescriptor.vertexFunction = lineVertexFunction
         lineDescriptor.fragmentFunction = lineFragment
         lineDescriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
         lineDescriptor.depthAttachmentPixelFormat = .depth32Float
@@ -526,21 +530,33 @@ private final class IosPointCloudRenderer: NSObject, FlutterTexture {
         float pointSize;
     };
 
-    struct VertexOut {
+    struct PointVertexOut {
         float4 position [[position]];
         float4 color;
         float pointSize [[point_size]];
     };
 
-    vertex VertexOut vertex_main(VertexIn in [[stage_in]], constant RendererUniforms& uniforms [[buffer(1)]]) {
-        VertexOut out;
+    struct LineVertexOut {
+        float4 position [[position]];
+        float4 color;
+    };
+
+    vertex PointVertexOut point_vertex_main(VertexIn in [[stage_in]], constant RendererUniforms& uniforms [[buffer(1)]]) {
+        PointVertexOut out;
         out.position = uniforms.mvp * float4(in.position, 1.0);
         out.color = in.color;
         out.pointSize = uniforms.pointSize;
         return out;
     }
 
-    fragment float4 point_fragment(VertexOut in [[stage_in]], float2 pointCoord [[point_coord]]) {
+    vertex LineVertexOut line_vertex_main(VertexIn in [[stage_in]], constant RendererUniforms& uniforms [[buffer(1)]]) {
+        LineVertexOut out;
+        out.position = uniforms.mvp * float4(in.position, 1.0);
+        out.color = in.color;
+        return out;
+    }
+
+    fragment float4 point_fragment(PointVertexOut in [[stage_in]], float2 pointCoord [[point_coord]]) {
         float2 centered = pointCoord - float2(0.5, 0.5);
         float dist = length(centered);
         if (dist > 0.5) {
@@ -550,7 +566,7 @@ private final class IosPointCloudRenderer: NSObject, FlutterTexture {
         return float4(in.color.rgb, in.color.a * alpha);
     }
 
-    fragment float4 line_fragment(VertexOut in [[stage_in]]) {
+    fragment float4 line_fragment(LineVertexOut in [[stage_in]]) {
         return in.color;
     }
     """
