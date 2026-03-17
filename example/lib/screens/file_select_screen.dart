@@ -18,7 +18,7 @@ class FileSelectScreen extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final fileList = useState<List<String>>([]);
-    final selectedFiles = useState<Set<String>>({});
+    final selectedFile = useState<String?>(null);
     final viewerController = useMemoized(
       () => DiTreDiController(
         rotationX: configNotifier.config.camera.rotationX,
@@ -32,7 +32,7 @@ class FileSelectScreen extends HookWidget {
 
     useEffect(() {
       Future<void>(
-        () => _loadBundledPcdAssets(fileList, selectedFiles),
+        () => _loadBundledPcdAssets(fileList, selectedFile),
       );
       return null;
     }, const []);
@@ -40,10 +40,10 @@ class FileSelectScreen extends HookWidget {
     return Column(
       children: [
         _Toolbar(
-          onPickFiles: () => _pickFiles(context, fileList, selectedFiles),
+          onPickFiles: () => _pickFiles(context, fileList, selectedFile),
           onClearFiles: () {
             fileList.value = [];
-            selectedFiles.value = {};
+            selectedFile.value = null;
           },
         ),
         Expanded(
@@ -51,21 +51,20 @@ class FileSelectScreen extends HookWidget {
               ? const _EmptyState()
               : _FileList(
                   files: fileList.value,
-                  selectedFiles: selectedFiles.value,
-                  onToggle: (path) {
-                    final next = Set<String>.from(selectedFiles.value);
-                    next.contains(path) ? next.remove(path) : next.add(path);
-                    selectedFiles.value = next;
+                  selectedFile: selectedFile.value,
+                  onSelect: (path) {
+                    // 点击已选中项则取消选择
+                    selectedFile.value = selectedFile.value == path ? null : path;
                   },
                 ),
         ),
         _PlayButton(
-          enabled: selectedFiles.value.isNotEmpty,
+          enabled: selectedFile.value != null,
           onPlay: () => Navigator.push<DiTreDiController>(
             context,
             MaterialPageRoute(
               builder: (_) => ViewerScreen(
-                pcdFiles: selectedFiles.value.toList()..sort(),
+                pcdFiles: [selectedFile.value!],
                 configNotifier: configNotifier,
                 controller: viewerController,
               ),
@@ -78,7 +77,7 @@ class FileSelectScreen extends HookWidget {
 
   Future<void> _loadBundledPcdAssets(
     ValueNotifier<List<String>> fileList,
-    ValueNotifier<Set<String>> selectedFiles,
+    ValueNotifier<String?> selectedFile,
   ) async {
     if (fileList.value.isNotEmpty) return;
 
@@ -120,13 +119,14 @@ class FileSelectScreen extends HookWidget {
     if (copiedPaths.isEmpty) return;
 
     fileList.value = copiedPaths;
-    selectedFiles.value = Set<String>.from(copiedPaths);
+    // 默认选中第一个
+    selectedFile.value = copiedPaths.first;
   }
 
   Future<void> _pickFiles(
     BuildContext context,
     ValueNotifier<List<String>> fileList,
-    ValueNotifier<Set<String>> selectedFiles,
+    ValueNotifier<String?> selectedFile,
   ) async {
     FilePickerResult? result;
     try {
@@ -169,8 +169,10 @@ class FileSelectScreen extends HookWidget {
       return;
     }
 
-    fileList.value = {...fileList.value, ...paths}.toList()..sort();
-    selectedFiles.value = Set<String>.from(selectedFiles.value)..addAll(paths);
+    final newPaths = {...fileList.value, ...paths}.toList()..sort();
+    fileList.value = newPaths;
+    // 选中新添加的第一个文件
+    selectedFile.value = paths.first;
   }
 }
 
@@ -223,13 +225,13 @@ class _EmptyState extends StatelessWidget {
 
 class _FileList extends StatelessWidget {
   final List<String> files;
-  final Set<String> selectedFiles;
-  final void Function(String) onToggle;
+  final String? selectedFile;
+  final void Function(String) onSelect;
 
   const _FileList({
     required this.files,
-    required this.selectedFiles,
-    required this.onToggle,
+    required this.selectedFile,
+    required this.onSelect,
   });
 
   @override
@@ -239,13 +241,21 @@ class _FileList extends StatelessWidget {
       itemBuilder: (_, i) {
         final path = files[i];
         final name = path.split('/').last;
-        final selected = selectedFiles.contains(path);
-        return CheckboxListTile(
-          value: selected,
-          onChanged: (_) => onToggle(path),
+        final selected = selectedFile == path;
+        return ListTile(
+          onTap: () => onSelect(path),
+          leading: Icon(
+            selected ? Icons.radio_button_checked : Icons.radio_button_off,
+            color: selected ? Theme.of(context).colorScheme.primary : null,
+          ),
           title: Text(name),
           subtitle: Text(path, style: const TextStyle(fontSize: 11)),
-          secondary: const Icon(Icons.insert_drive_file_outlined),
+          trailing: Icon(
+            Icons.insert_drive_file_outlined,
+            color: selected ? Theme.of(context).colorScheme.primary : null,
+          ),
+          selected: selected,
+          selectedTileColor: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
         );
       },
     );

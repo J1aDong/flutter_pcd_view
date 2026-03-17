@@ -7,6 +7,8 @@ import 'package:flutter_pcd_view/pcd_view.dart';
 
 import '../config/viewer_config_notifier.dart';
 
+enum _LoadingState { idle, loading, ready, error }
+
 class ViewerScreen extends HookWidget {
   final List<String> pcdFiles;
   final ViewerConfigNotifier configNotifier;
@@ -23,26 +25,27 @@ class ViewerScreen extends HookWidget {
   Widget build(BuildContext context) {
     final currentIndex = useState(0);
     final isPlaying = useState(pcdFiles.length > 1);
-    final isFrameLoading = useState(true);
+    final loadingState = useState(_LoadingState.loading);
     final optimizationStats = useState<OptimizationStats?>(null);
+    final errorMessage = useState<String?>(null);
     final playbackTimer = useRef<Timer?>(null);
 
     useEffect(() {
       playbackTimer.value?.cancel();
-      if (!isPlaying.value || pcdFiles.length <= 1 || isFrameLoading.value) {
+      if (!isPlaying.value || pcdFiles.length <= 1 || loadingState.value != _LoadingState.ready) {
         return null;
       }
 
       playbackTimer.value = Timer(
         const Duration(milliseconds: 33),
         () {
-          isFrameLoading.value = true;
+          loadingState.value = _LoadingState.loading;
           currentIndex.value = (currentIndex.value + 1) % pcdFiles.length;
         },
       );
 
       return () => playbackTimer.value?.cancel();
-    }, [isPlaying.value, isFrameLoading.value, currentIndex.value, pcdFiles.length]);
+    }, [isPlaying.value, loadingState.value, currentIndex.value, pcdFiles.length]);
 
     return PopScope<DiTreDiController>(
       canPop: false,
@@ -80,10 +83,12 @@ class ViewerScreen extends HookWidget {
                 config: configNotifier.config,
                 controller: controller,
                 onLoaded: (_) {
-                  isFrameLoading.value = false;
+                  loadingState.value = _LoadingState.ready;
+                  errorMessage.value = null;
                 },
-                onError: (_) {
-                  isFrameLoading.value = false;
+                onError: (error) {
+                  loadingState.value = _LoadingState.error;
+                  errorMessage.value = error;
                 },
                 onOptimized: (stats) {
                   optimizationStats.value = stats;
@@ -95,12 +100,17 @@ class ViewerScreen extends HookWidget {
               top: 16,
               child: _PointSizeControl(configNotifier: configNotifier),
             ),
-            if (optimizationStats.value != null)
-              Positioned(
-                left: 16,
-                bottom: 16,
-                child: _OptimizationStatsCard(stats: optimizationStats.value!),
+            // 底部状态栏
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: _LoadingStatusBar(
+                state: loadingState.value,
+                errorMessage: errorMessage.value,
+                stats: optimizationStats.value,
               ),
+            ),
           ],
         ),
       ),
@@ -127,12 +137,12 @@ class _PointSizeControl extends StatelessWidget {
               children: [
                 IconButton(
                   icon: const Icon(Icons.add),
-                  onPressed: () => configNotifier.updatePointSize(size + 0.5),
+                  onPressed: size < 10.0 ? () => configNotifier.updatePointSize(size + 0.5) : null,
                 ),
                 Text(size.toStringAsFixed(1)),
                 IconButton(
                   icon: const Icon(Icons.remove),
-                  onPressed: () => configNotifier.updatePointSize(size - 0.5),
+                  onPressed: size > 1.0 ? () => configNotifier.updatePointSize(size - 0.5) : null,
                 ),
               ],
             ),
@@ -143,53 +153,111 @@ class _PointSizeControl extends StatelessWidget {
   }
 }
 
-class _OptimizationStatsCard extends StatelessWidget {
-  final OptimizationStats stats;
+class _LoadingStatusBar extends StatelessWidget {
+  final _LoadingState state;
+  final String? errorMessage;
+  final OptimizationStats? stats;
 
-  const _OptimizationStatsCard({required this.stats});
+  const _LoadingStatusBar({
+    required this.state,
+    this.errorMessage,
+    this.stats,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: Colors.black87,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
+    final bgColor = state == _LoadingState.error
+        ? Colors.red.withValues(alpha: 0.9)
+        : Colors.black.withValues(alpha: 0.75);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: bgColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
-              mainAxisSize: MainAxisSize.min,
+            // 状态文本
+            Row(
               children: [
-                Icon(Icons.speed, color: Colors.greenAccent, size: 16),
-                SizedBox(width: 4),
-                Text(
-                  '优化统计',
-                  style: TextStyle(
-                    color: Colors.greenAccent,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
+                _StatusIcon(state: state),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _getStatusText(),
+                    style: TextStyle(
+                      color: state == _LoadingState.error ? Colors.white : Colors.white70,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
+                if (stats != null) ...[
+                  const SizedBox(width: 16),
+                  Text(
+                    '${_formatNumber(stats!.finalCount)} 点',
+                    style: const TextStyle(
+                      color: Colors.greenAccent,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
               ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              '原始点数: ${_formatNumber(stats.originalCount)}',
-              style: const TextStyle(color: Colors.white70, fontSize: 11),
-            ),
-            Text(
-              '优化后: ${_formatNumber(stats.finalCount)}',
-              style: const TextStyle(color: Colors.white70, fontSize: 11),
-            ),
-            Text(
-              '减少: ${(stats.reductionRatio * 100).toStringAsFixed(1)}%',
-              style: const TextStyle(color: Colors.greenAccent, fontSize: 11),
-            ),
+            // 不确定进度条（加载中显示动画，无假百分比）
+            if (state == _LoadingState.loading) ...[
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: const LinearProgressIndicator(
+                  backgroundColor: Colors.white24,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.blueAccent),
+                  minHeight: 4,
+                ),
+              ),
+            ],
+            // 错误信息
+            if (state == _LoadingState.error && errorMessage != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                errorMessage!,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 10,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  String _getStatusText() {
+    switch (state) {
+      case _LoadingState.idle:
+        return '等待加载';
+      case _LoadingState.loading:
+        return '正在解析点云...';
+      case _LoadingState.ready:
+        return stats != null
+            ? '加载完成 · 减少 ${(stats!.reductionRatio * 100).toStringAsFixed(1)}%'
+            : '加载完成';
+      case _LoadingState.error:
+        return '加载失败';
+    }
   }
 
   String _formatNumber(int n) {
@@ -199,5 +267,32 @@ class _OptimizationStatsCard extends StatelessWidget {
       return '${(n / 1000).toStringAsFixed(1)}K';
     }
     return n.toString();
+  }
+}
+
+class _StatusIcon extends StatelessWidget {
+  final _LoadingState state;
+
+  const _StatusIcon({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    switch (state) {
+      case _LoadingState.idle:
+        return const Icon(Icons.hourglass_empty, color: Colors.white54, size: 16);
+      case _LoadingState.loading:
+        return const SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.blueAccent),
+          ),
+        );
+      case _LoadingState.ready:
+        return const Icon(Icons.check_circle, color: Colors.greenAccent, size: 16);
+      case _LoadingState.error:
+        return const Icon(Icons.error, color: Colors.white, size: 16);
+    }
   }
 }

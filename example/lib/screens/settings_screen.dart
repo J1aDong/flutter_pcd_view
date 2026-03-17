@@ -285,9 +285,9 @@ class _PointSizeSlider extends StatelessWidget {
         ),
         Slider(
           value: value,
-          min: 1.0,
+          min: 0.5,
           max: 10.0,
-          divisions: 18,
+          divisions: 19,
           onChanged: onChanged,
         ),
       ],

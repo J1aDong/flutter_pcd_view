@@ -11,6 +11,22 @@ class TabScreen extends HookWidget {
   Widget build(BuildContext context) {
     final tabController = useTabController(initialLength: 2);
     final configNotifier = useMemoized(() => ViewerConfigNotifier());
+    final isLoading = useState(true);
+
+    useEffect(() {
+      configNotifier.loadSettings().then((_) {
+        isLoading.value = false;
+      });
+      return null;
+    }, []);
+
+    if (isLoading.value) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(

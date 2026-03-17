@@ -40,8 +40,8 @@ pub struct SOROptions {
 impl Default for SOROptions {
     fn default() -> Self {
         Self {
-            k: 50,
-            std_ratio: 1.0,
+            k: 30,
+            std_ratio: 2.0,
         }
     }
 }
@@ -57,8 +57,8 @@ pub struct ROROptions {
 impl Default for ROROptions {
     fn default() -> Self {
         Self {
-            radius: 0.1,
-            min_neighbors: 5,
+            radius: 0.05,
+            min_neighbors: 3,
         }
     }
 }

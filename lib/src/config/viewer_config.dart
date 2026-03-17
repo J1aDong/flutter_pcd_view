@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+/// Sentinel value for copyWith to distinguish between "not provided" and "explicitly null"
+const _sentinel = Object();
+
 /// 点云性能优化配置
 class PerformanceConfig {
   /// 启用去重（空间哈希）
@@ -67,8 +70,8 @@ class SORConfig {
   final double stdRatio;
 
   const SORConfig({
-    this.k = 50,
-    this.stdRatio = 1.0,
+    this.k = 30,
+    this.stdRatio = 2.0,
   });
 
   SORConfig copyWith({
@@ -102,8 +105,8 @@ class RORConfig {
   final int minNeighbors;
 
   const RORConfig({
-    this.radius = 0.1,
-    this.minNeighbors = 5,
+    this.radius = 0.05,
+    this.minNeighbors = 3,
   });
 
   RORConfig copyWith({
@@ -203,15 +206,17 @@ class ProcessingConfig {
   /// 是否启用任何处理
   bool get isEnabled => sor != null || ror != null || (connect?.isEnabled ?? false);
 
+  /// copyWith 支持显式设置 null 值（用于关闭功能）
+  /// 传入 null 会将对应配置设为 null（禁用）
   ProcessingConfig copyWith({
-    SORConfig? sor,
-    RORConfig? ror,
-    ConnectConfig? connect,
+    Object? sor = _sentinel,
+    Object? ror = _sentinel,
+    Object? connect = _sentinel,
   }) {
     return ProcessingConfig(
-      sor: sor ?? this.sor,
-      ror: ror ?? this.ror,
-      connect: connect ?? this.connect,
+      sor: sor == _sentinel ? this.sor : sor as SORConfig?,
+      ror: ror == _sentinel ? this.ror : ror as RORConfig?,
+      connect: connect == _sentinel ? this.connect : connect as ConnectConfig?,
     );
   }
 

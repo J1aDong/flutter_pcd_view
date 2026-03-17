@@ -543,19 +543,9 @@ class _PcdViewState extends State<PcdView> {
   Widget build(BuildContext context) {
     switch (_phase) {
       case _PcdViewPhase.loading:
-        return _StatusView(
-          backgroundColor: widget.config.backgroundColor,
-          title: '正在解析点云文件',
-          subtitle: _sourceLabel,
-          loading: true,
-        );
       case _PcdViewPhase.preparing:
-        return _StatusView(
-          backgroundColor: widget.config.backgroundColor,
-          title: '正在准备渲染场景',
-          subtitle: _sourceLabel,
-          loading: true,
-        );
+        // 加载中由外部状态栏显示，这里只返回空白背景
+        return Container(color: widget.config.backgroundColor);
       case _PcdViewPhase.error:
         return _StatusView(
           backgroundColor: widget.config.backgroundColor,
