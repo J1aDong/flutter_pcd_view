@@ -368,14 +368,38 @@ class _PcdViewState extends State<PcdView> {
     await Future<void>.delayed(Duration.zero);
 
     final prepareWatch = Stopwatch()..start();
+    _logViewer(
+      event: 'native_renderer_prepare',
+      requestId: requestId,
+      fileLabel: _sourceLabel,
+      pointCount: points.length,
+      lineCount: lines.length,
+      message: 'before ensure renderer',
+    );
     final scene = _buildPackedScene(points, lines, widget.config);
     await _ensureNativeRenderer();
+    _logViewer(
+      event: 'native_renderer_prepare',
+      requestId: requestId,
+      fileLabel: _sourceLabel,
+      pointCount: scene.pointCount,
+      lineCount: scene.lineVertexCount,
+      message: 'renderer ready, upload scene',
+    );
     await _nativeRenderer!.updateConfig(widget.config);
     await _nativeRenderer!.loadPackedScene(
       packedPoints: scene.packedPoints,
       packedLines: scene.packedLines,
       pointCount: scene.pointCount,
       lineVertexCount: scene.lineVertexCount,
+    );
+    _logViewer(
+      event: 'native_renderer_prepare',
+      requestId: requestId,
+      fileLabel: _sourceLabel,
+      pointCount: scene.pointCount,
+      lineCount: scene.lineVertexCount,
+      message: 'scene uploaded, update camera',
     );
     await _nativeRenderer!.updateCamera(
       rotationX: _nativeRotationX,
@@ -416,6 +440,14 @@ class _PcdViewState extends State<PcdView> {
     );
 
     if (notifyLoaded) {
+      _logViewer(
+        event: 'native_renderer_prepare',
+        requestId: requestId,
+        fileLabel: _sourceLabel,
+        pointCount: points.length,
+        lineCount: lines.length,
+        message: 'setState ready complete',
+      );
       widget.onLoaded?.call(points.length);
     }
   }
@@ -697,6 +729,12 @@ class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer> {
             _lastSize = size;
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!mounted) return;
+              _logViewer(
+                event: 'texture_viewport_request',
+                requestId: 0,
+                fileLabel: 'native_texture',
+                message: 'size=${size.width.toStringAsFixed(1)}x${size.height.toStringAsFixed(1)}',
+              );
               unawaited(widget.onViewportChanged(size));
             });
           }

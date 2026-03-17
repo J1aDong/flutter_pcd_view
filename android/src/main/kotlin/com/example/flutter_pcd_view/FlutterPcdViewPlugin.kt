@@ -1,6 +1,5 @@
 package com.example.flutter_pcd_view
 
-import android.graphics.SurfaceTexture
 import android.opengl.EGL14
 import android.opengl.EGLConfig
 import android.opengl.EGLContext
@@ -10,6 +9,7 @@ import android.opengl.GLES20
 import android.opengl.Matrix
 import android.os.Handler
 import android.os.HandlerThread
+import android.util.Log
 import android.view.Surface
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.BinaryMessenger
@@ -29,6 +29,10 @@ class FlutterPcdViewPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     private lateinit var channel: MethodChannel
     private val rendererEntries = ConcurrentHashMap<Long, NativeRendererEntry>()
 
+    companion object {
+        private const val TAG = "FlutterPcdView"
+    }
+
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         textureRegistry = binding.textureRegistry
         binaryMessenger = binding.binaryMessenger
@@ -45,9 +49,10 @@ class FlutterPcdViewPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "createRenderer" -> {
-                val textureEntry = textureRegistry.createSurfaceTexture()
-                val entry = NativeRendererEntry(binaryMessenger, textureEntry)
-                rendererEntries[textureEntry.id()] = entry
+                val producer = textureRegistry.createSurfaceProducer()
+                val entry = NativeRendererEntry(binaryMessenger, producer)
+                rendererEntries[producer.id()] = entry
+                Log.d(TAG, "createRenderer id=${producer.id()}")
                 entry.renderer.updateConfig(
                     backgroundColor = call.argument<Number>("backgroundColor")?.toInt() ?: 0xFF000000.toInt(),
                     pointSize = call.argument<Number>("pointSize")?.toFloat() ?: 2f,
@@ -58,7 +63,7 @@ class FlutterPcdViewPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                     rotationY = call.argument<Number>("rotationY")?.toFloat() ?: 0.5f,
                     zoom = call.argument<Number>("zoom")?.toFloat() ?: 1f,
                 )
-                result.success(textureEntry.id())
+                result.success(producer.id())
             }
             else -> result.notImplemented()
         }
@@ -66,16 +71,17 @@ class FlutterPcdViewPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
 
     private inner class NativeRendererEntry(
         messenger: BinaryMessenger,
-        private val textureEntry: TextureRegistry.SurfaceTextureEntry,
+        private val producer: TextureRegistry.SurfaceProducer,
     ) : MethodChannel.MethodCallHandler {
         private val methodChannel = MethodChannel(
             messenger,
-            "flutter_pcd_view/native_renderer/${textureEntry.id()}"
+            "flutter_pcd_view/native_renderer/${producer.id()}"
         )
-        val renderer = AndroidPointCloudRenderer(textureEntry.surfaceTexture())
+        val renderer = AndroidPointCloudRenderer(producer)
 
         init {
             methodChannel.setMethodCallHandler(this)
+            producer.setCallback(renderer)
         }
 
         override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -121,18 +127,20 @@ class FlutterPcdViewPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
 
         fun dispose() {
             methodChannel.setMethodCallHandler(null)
+            producer.setCallback(null)
             renderer.dispose()
-            textureEntry.release()
-            rendererEntries.remove(textureEntry.id())
+            producer.release()
+            rendererEntries.remove(producer.id())
         }
     }
 }
 
 private class AndroidPointCloudRenderer(
-    private val surfaceTexture: SurfaceTexture,
-) {
+    private val producer: TextureRegistry.SurfaceProducer,
+) : TextureRegistry.SurfaceProducer.Callback {
     private val renderThread = HandlerThread("FlutterPcdViewRenderer").apply { start() }
     private val handler = Handler(renderThread.looper)
+    private val mainHandler = Handler(android.os.Looper.getMainLooper())
 
     private var surface: Surface? = null
     private var eglDisplay: EGLDisplay = EGL14.EGL_NO_DISPLAY
@@ -168,11 +176,28 @@ private class AndroidPointCloudRenderer(
         }
     }
 
+    override fun onSurfaceAvailable() {
+        handler.post {
+            Log.d("FlutterPcdView", "onSurfaceAvailable")
+            recreateSurface()
+            drawFrame()
+        }
+    }
+
+    override fun onSurfaceCleanup() {
+        handler.post {
+            Log.d("FlutterPcdView", "onSurfaceCleanup")
+            releaseSurfaceOnly()
+        }
+    }
+
     fun setViewport(width: Int, height: Int) {
         handler.post {
             viewportWidth = width
             viewportHeight = height
+            Log.d("FlutterPcdView", "setViewport width=$width height=$height scale=$renderScale")
             applyBufferSize()
+            recreateSurface()
             drawFrame()
         }
     }
@@ -183,6 +208,7 @@ private class AndroidPointCloudRenderer(
             this.pointSize = pointSize
             this.renderScale = renderScale.coerceIn(0.5f, 2.0f)
             applyBufferSize()
+            recreateSurface()
             drawFrame()
         }
     }
@@ -207,7 +233,12 @@ private class AndroidPointCloudRenderer(
             this.lineBuffer = lineBytes.toDirectFloatBuffer()
             this.pointCount = pointCount
             this.lineVertexCount = lineVertexCount
-            drawFrame()
+            Log.d("FlutterPcdView", "loadScene points=$pointCount lineVertices=$lineVertexCount viewport=${viewportWidth}x${viewportHeight}")
+            if (viewportWidth > 1 && viewportHeight > 1) {
+                drawFrame()
+            } else {
+                Log.d("FlutterPcdView", "loadScene cached until viewport is ready")
+            }
         }
     }
 
@@ -219,7 +250,6 @@ private class AndroidPointCloudRenderer(
     }
 
     private fun initEgl() {
-        surface = Surface(surfaceTexture)
         eglDisplay = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
         val version = IntArray(2)
         EGL14.eglInitialize(eglDisplay, version, 0, version, 1)
@@ -258,15 +288,7 @@ private class AndroidPointCloudRenderer(
             contextAttributes,
             0,
         )
-        val surfaceAttributes = intArrayOf(EGL14.EGL_NONE)
-        eglSurface = EGL14.eglCreateWindowSurface(
-            eglDisplay,
-            eglConfig,
-            surface,
-            surfaceAttributes,
-            0,
-        )
-        EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext)
+        recreateSurface()
     }
 
     private fun initGl() {
@@ -275,17 +297,37 @@ private class AndroidPointCloudRenderer(
         GLES20.glEnable(GLES20.GL_DEPTH_TEST)
     }
 
+    private fun recreateSurface() {
+        releaseSurfaceOnly()
+        val currentSurface = producer.surface ?: return
+        surface = currentSurface
+        val surfaceAttributes = intArrayOf(EGL14.EGL_NONE)
+        eglSurface = EGL14.eglCreateWindowSurface(
+            eglDisplay,
+            eglConfig,
+            currentSurface,
+            surfaceAttributes,
+            0,
+        )
+        EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext)
+    }
+
     private fun applyBufferSize() {
         val scaledWidth = max(1, (viewportWidth * renderScale).roundToInt())
         val scaledHeight = max(1, (viewportHeight * renderScale).roundToInt())
-        surfaceTexture.setDefaultBufferSize(scaledWidth, scaledHeight)
+        producer.setSize(scaledWidth, scaledHeight)
     }
 
     private fun drawFrame() {
         if (eglDisplay == EGL14.EGL_NO_DISPLAY || eglSurface == EGL14.EGL_NO_SURFACE) return
+        if (viewportWidth <= 1 || viewportHeight <= 1) {
+            Log.d("FlutterPcdView", "drawFrame skipped waiting viewport viewport=${viewportWidth}x${viewportHeight}")
+            return
+        }
         EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext)
         val scaledWidth = max(1, (viewportWidth * renderScale).roundToInt())
         val scaledHeight = max(1, (viewportHeight * renderScale).roundToInt())
+        Log.d("FlutterPcdView", "drawFrame scaled=${scaledWidth}x${scaledHeight} points=$pointCount lines=$lineVertexCount")
         GLES20.glViewport(0, 0, scaledWidth, scaledHeight)
 
         val alpha = ((backgroundColor ushr 24) and 0xFF) / 255f
@@ -307,7 +349,11 @@ private class AndroidPointCloudRenderer(
 
         lineBuffer?.let { drawLines(it) }
         pointBuffer?.let { drawPoints(it) }
-        EGL14.eglSwapBuffers(eglDisplay, eglSurface)
+        if (EGL14.eglSwapBuffers(eglDisplay, eglSurface)) {
+            mainHandler.post {
+                producer.scheduleFrame()
+            }
+        }
     }
 
     private fun drawPoints(buffer: FloatBuffer) {
@@ -363,23 +409,29 @@ private class AndroidPointCloudRenderer(
         return shader
     }
 
-    private fun releaseGl() {
-        if (eglDisplay != EGL14.EGL_NO_DISPLAY) {
+    private fun releaseSurfaceOnly() {
+        if (eglDisplay != EGL14.EGL_NO_DISPLAY && eglSurface != EGL14.EGL_NO_SURFACE) {
             EGL14.eglMakeCurrent(
                 eglDisplay,
                 EGL14.EGL_NO_SURFACE,
                 EGL14.EGL_NO_SURFACE,
                 EGL14.EGL_NO_CONTEXT,
             )
-            if (eglSurface != EGL14.EGL_NO_SURFACE) {
-                EGL14.eglDestroySurface(eglDisplay, eglSurface)
-            }
+            EGL14.eglDestroySurface(eglDisplay, eglSurface)
+            eglSurface = EGL14.EGL_NO_SURFACE
+        }
+        surface?.release()
+        surface = null
+    }
+
+    private fun releaseGl() {
+        releaseSurfaceOnly()
+        if (eglDisplay != EGL14.EGL_NO_DISPLAY) {
             if (eglContext != EGL14.EGL_NO_CONTEXT) {
                 EGL14.eglDestroyContext(eglDisplay, eglContext)
             }
             EGL14.eglTerminate(eglDisplay)
         }
-        surface?.release()
         eglDisplay = EGL14.EGL_NO_DISPLAY
         eglContext = EGL14.EGL_NO_CONTEXT
         eglSurface = EGL14.EGL_NO_SURFACE
