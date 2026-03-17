@@ -14,7 +14,7 @@ mod tests {
     use crate::parser::Point3D;
 
     fn create_test_point(x: f64, y: f64, z: f64, color: u32) -> Point3D {
-        Point3D { x, y, z, color }
+        Point3D { x, y, z, color, has_color: true }
     }
 
     #[test]

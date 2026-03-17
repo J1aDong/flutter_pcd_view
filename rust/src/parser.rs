@@ -7,6 +7,7 @@ pub struct Point3D {
     pub y: f64,
     pub z: f64,
     pub color: u32, // ARGB format: 0xAARRGGBB
+    pub has_color: bool,
 }
 
 #[derive(Debug, PartialEq)]
@@ -250,6 +251,7 @@ fn parse_ascii_data(reader: &mut BufReader<File>, header: &PcdHeader) -> Result<
         let y = values[y_idx].parse::<f64>().map_err(|_| "Invalid y value")?;
         let z = values[z_idx].parse::<f64>().map_err(|_| "Invalid z value")?;
 
+        let has_color = !matches!(header.field_type, FieldType::XYZ);
         let color = match header.field_type {
             FieldType::XYZRGB => {
                 if let Some(idx) = rgb_idx {
@@ -272,7 +274,7 @@ fn parse_ascii_data(reader: &mut BufReader<File>, header: &PcdHeader) -> Result<
             FieldType::XYZ => 0xFFFFFFFF,
         };
 
-        points.push(Point3D { x, y, z, color });
+        points.push(Point3D { x, y, z, color, has_color });
     }
 
     Ok(points)
@@ -363,6 +365,7 @@ fn parse_binary_data(file: &mut File, header: &PcdHeader, header_bytes: u64) -> 
         let y = field_values[y_idx];
         let z = field_values[z_idx];
 
+        let has_color = !matches!(header.field_type, FieldType::XYZ);
         let color = match header.field_type {
             FieldType::XYZRGB => {
                 if let Some(idx) = rgb_idx {
@@ -385,7 +388,7 @@ fn parse_binary_data(file: &mut File, header: &PcdHeader, header_bytes: u64) -> 
             FieldType::XYZ => 0xFFFFFFFF,
         };
 
-        points.push(Point3D { x, y, z, color });
+        points.push(Point3D { x, y, z, color, has_color });
     }
 
     Ok(points)
@@ -538,6 +541,7 @@ fn parse_ascii_data_generic<R: BufRead>(reader: &mut R, header: &PcdHeader) -> R
         let y = values[y_idx].parse::<f64>().map_err(|_| "Invalid y value")?;
         let z = values[z_idx].parse::<f64>().map_err(|_| "Invalid z value")?;
 
+        let has_color = !matches!(header.field_type, FieldType::XYZ);
         let color = match header.field_type {
             FieldType::XYZRGB => {
                 if let Some(idx) = rgb_idx {
@@ -560,7 +564,7 @@ fn parse_ascii_data_generic<R: BufRead>(reader: &mut R, header: &PcdHeader) -> R
             FieldType::XYZ => 0xFFFFFFFF,
         };
 
-        points.push(Point3D { x, y, z, color });
+        points.push(Point3D { x, y, z, color, has_color });
     }
 
     Ok(points)
@@ -682,6 +686,55 @@ DATA ascii
 
         let rgb = hsv_to_rgb(0.0, 0.0, 0.0);
         assert_eq!(rgb, 0xFF000000);
+    }
+
+    #[test]
+    fn test_parse_ascii_xyz_marks_points_without_color_flag() {
+        let content = r#"# .PCD v0.7 - Point Cloud Data file format
+VERSION 0.7
+FIELDS x y z
+SIZE 4 4 4
+TYPE F F F
+COUNT 1 1 1
+WIDTH 1
+HEIGHT 1
+VIEWPOINT 0 0 0 1 0 0 0
+POINTS 1
+DATA ascii
+0.0 0.0 0.0
+"#;
+        let file = create_test_pcd_file(content);
+        let result = parse_pcd_file(file.path().to_str().unwrap().to_string());
+
+        assert!(result.is_ok());
+        let points = result.unwrap();
+        assert_eq!(points.len(), 1);
+        assert!(!points[0].has_color);
+    }
+
+    #[test]
+    fn test_parse_ascii_xyzrgb_marks_points_with_color_flag() {
+        let content = r#"# .PCD v0.7 - Point Cloud Data file format
+VERSION 0.7
+FIELDS x y z rgb
+SIZE 4 4 4 4
+TYPE F F F U
+COUNT 1 1 1 1
+WIDTH 1
+HEIGHT 1
+VIEWPOINT 0 0 0 1 0 0 0
+POINTS 1
+DATA ascii
+0.0 0.0 0.0 16777215
+"#;
+        let file = create_test_pcd_file(content);
+        let result = parse_pcd_file(file.path().to_str().unwrap().to_string());
+
+        assert!(result.is_ok());
+        let points = result.unwrap();
+        assert_eq!(points.len(), 1);
+        assert!(points[0].has_color);
+        assert_eq!(points[0].color, 0xFFFFFFFF);
     }
 
     #[test]

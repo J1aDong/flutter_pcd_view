@@ -136,6 +136,7 @@ mod tests {
             y,
             z,
             color: 0xFFFFFFFF,
+            has_color: false,
         }
     }
 

@@ -29,6 +29,7 @@ class ViewerConfigNotifier extends ChangeNotifier {
     final parts = <String>[
       'ps:${config.pointSize}',
       'bg:${config.backgroundColor.toARGB32()}',
+      'pc:${config.pointColor.toARGB32()}',
       'ax:${config.showAxes ? 1 : 0}',
       'gv:${config.grid.visible ? 1 : 0}',
       'gr:${config.grid.range}',
@@ -84,7 +85,8 @@ class ViewerConfigNotifier extends ChangeNotifier {
     ConnectConfig? connect;
     if (map.containsKey('cm')) {
       final modeIndex = int.tryParse(map['cm'] ?? '0') ?? 0;
-      final mode = ConnectMode.values[modeIndex.clamp(0, ConnectMode.values.length - 1)];
+      final mode =
+          ConnectMode.values[modeIndex.clamp(0, ConnectMode.values.length - 1)];
       connect = ConnectConfig(
         mode: mode,
         maxDistance: double.tryParse(map['cd'] ?? '0.5') ?? 0.5,
@@ -93,7 +95,10 @@ class ViewerConfigNotifier extends ChangeNotifier {
 
     return ViewerConfig(
       pointSize: double.tryParse(map['ps'] ?? '2.0') ?? 2.0,
-      backgroundColor: Color(int.tryParse(map['bg'] ?? '4278190080') ?? 4278190080),
+      backgroundColor: Color(
+        int.tryParse(map['bg'] ?? '4278190080') ?? 4278190080,
+      ),
+      pointColor: Color(int.tryParse(map['pc'] ?? '4294967295') ?? 4294967295),
       showAxes: (map['ax'] ?? '1') == '1',
       grid: GridConfig(
         visible: (map['gv'] ?? '1') == '1',
@@ -107,11 +112,7 @@ class ViewerConfigNotifier extends ChangeNotifier {
         nativePointBudget: int.tryParse(map['np'] ?? '0') ?? 0,
         nativeRenderScale: double.tryParse(map['ns'] ?? '1.0') ?? 1.0,
       ),
-      processing: ProcessingConfig(
-        sor: sor,
-        ror: ror,
-        connect: connect,
-      ),
+      processing: ProcessingConfig(sor: sor, ror: ror, connect: connect),
     );
   }
 
@@ -127,18 +128,20 @@ class ViewerConfigNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updatePointColor(Color color) {
+    _config = _config.copyWith(pointColor: color);
+    saveSettings();
+    notifyListeners();
+  }
+
   void updateGridVisible(bool visible) {
-    _config = _config.copyWith(
-      grid: _config.grid.copyWith(visible: visible),
-    );
+    _config = _config.copyWith(grid: _config.grid.copyWith(visible: visible));
     saveSettings();
     notifyListeners();
   }
 
   void updateGridRange(double range) {
-    _config = _config.copyWith(
-      grid: _config.grid.copyWith(range: range),
-    );
+    _config = _config.copyWith(grid: _config.grid.copyWith(range: range));
     saveSettings();
     notifyListeners();
   }
@@ -199,9 +202,7 @@ class ViewerConfigNotifier extends ChangeNotifier {
   }
 
   void resetPerformance() {
-    _config = _config.copyWith(
-      performance: const PerformanceConfig(),
-    );
+    _config = _config.copyWith(performance: const PerformanceConfig());
     saveSettings();
     notifyListeners();
   }
@@ -220,7 +221,8 @@ class ViewerConfigNotifier extends ChangeNotifier {
   void updateSORK(int k) {
     _config = _config.copyWith(
       processing: _config.processing.copyWith(
-        sor: (_config.processing.sor ?? const SORConfig(k: 30, stdRatio: 2.0)).copyWith(k: k),
+        sor: (_config.processing.sor ?? const SORConfig(k: 30, stdRatio: 2.0))
+            .copyWith(k: k),
       ),
     );
     saveSettings();
@@ -230,7 +232,8 @@ class ViewerConfigNotifier extends ChangeNotifier {
   void updateSORStdRatio(double ratio) {
     _config = _config.copyWith(
       processing: _config.processing.copyWith(
-        sor: (_config.processing.sor ?? const SORConfig(k: 30, stdRatio: 2.0)).copyWith(stdRatio: ratio),
+        sor: (_config.processing.sor ?? const SORConfig(k: 30, stdRatio: 2.0))
+            .copyWith(stdRatio: ratio),
       ),
     );
     saveSettings();
@@ -251,7 +254,10 @@ class ViewerConfigNotifier extends ChangeNotifier {
   void updateRORRadius(double radius) {
     _config = _config.copyWith(
       processing: _config.processing.copyWith(
-        ror: (_config.processing.ror ?? const RORConfig(radius: 0.05, minNeighbors: 3)).copyWith(radius: radius),
+        ror:
+            (_config.processing.ror ??
+                    const RORConfig(radius: 0.05, minNeighbors: 3))
+                .copyWith(radius: radius),
       ),
     );
     saveSettings();
@@ -261,7 +267,10 @@ class ViewerConfigNotifier extends ChangeNotifier {
   void updateRORMinNeighbors(int minNeighbors) {
     _config = _config.copyWith(
       processing: _config.processing.copyWith(
-        ror: (_config.processing.ror ?? const RORConfig(radius: 0.05, minNeighbors: 3)).copyWith(minNeighbors: minNeighbors),
+        ror:
+            (_config.processing.ror ??
+                    const RORConfig(radius: 0.05, minNeighbors: 3))
+                .copyWith(minNeighbors: minNeighbors),
       ),
     );
     saveSettings();
@@ -272,7 +281,10 @@ class ViewerConfigNotifier extends ChangeNotifier {
   void updateConnectMode(ConnectMode mode) {
     _config = _config.copyWith(
       processing: _config.processing.copyWith(
-        connect: (_config.processing.connect ?? const ConnectConfig(mode: ConnectMode.sequential)).copyWith(mode: mode),
+        connect:
+            (_config.processing.connect ??
+                    const ConnectConfig(mode: ConnectMode.sequential))
+                .copyWith(mode: mode),
       ),
     );
     saveSettings();
@@ -282,7 +294,10 @@ class ViewerConfigNotifier extends ChangeNotifier {
   void updateConnectMaxDistance(double distance) {
     _config = _config.copyWith(
       processing: _config.processing.copyWith(
-        connect: (_config.processing.connect ?? const ConnectConfig(mode: ConnectMode.sequential)).copyWith(maxDistance: distance),
+        connect:
+            (_config.processing.connect ??
+                    const ConnectConfig(mode: ConnectMode.sequential))
+                .copyWith(maxDistance: distance),
       ),
     );
     saveSettings();
@@ -292,7 +307,9 @@ class ViewerConfigNotifier extends ChangeNotifier {
   void updateConnectEnabled(bool enable) {
     _config = _config.copyWith(
       processing: _config.processing.copyWith(
-        connect: enable ? const ConnectConfig(mode: ConnectMode.sequential) : null,
+        connect: enable
+            ? const ConnectConfig(mode: ConnectMode.sequential)
+            : null,
       ),
     );
     saveSettings();
@@ -300,9 +317,7 @@ class ViewerConfigNotifier extends ChangeNotifier {
   }
 
   void resetProcessing() {
-    _config = _config.copyWith(
-      processing: const ProcessingConfig(),
-    );
+    _config = _config.copyWith(processing: const ProcessingConfig());
     saveSettings();
     notifyListeners();
   }

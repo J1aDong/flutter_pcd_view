@@ -10,6 +10,7 @@ struct VoxelCell {
     sum_g: f64,
     sum_b: f64,
     count: u32,
+    colored_count: u32,
 }
 
 impl VoxelCell {
@@ -22,6 +23,7 @@ impl VoxelCell {
             sum_g: 0.0,
             sum_b: 0.0,
             count: 0,
+            colored_count: 0,
         }
     }
 
@@ -30,29 +32,39 @@ impl VoxelCell {
         self.sum_y += point.y;
         self.sum_z += point.z;
 
-        // Extract RGB from ARGB color
-        let r = ((point.color >> 16) & 0xFF) as f64;
-        let g = ((point.color >> 8) & 0xFF) as f64;
-        let b = (point.color & 0xFF) as f64;
+        if point.has_color {
+            let r = ((point.color >> 16) & 0xFF) as f64;
+            let g = ((point.color >> 8) & 0xFF) as f64;
+            let b = (point.color & 0xFF) as f64;
 
-        self.sum_r += r;
-        self.sum_g += g;
-        self.sum_b += b;
+            self.sum_r += r;
+            self.sum_g += g;
+            self.sum_b += b;
+            self.colored_count += 1;
+        }
+
         self.count += 1;
     }
 
     fn to_point(&self) -> Point3D {
         let count = self.count as f64;
-        let avg_r = (self.sum_r / count).round() as u32;
-        let avg_g = (self.sum_g / count).round() as u32;
-        let avg_b = (self.sum_b / count).round() as u32;
-        let color = 0xFF000000 | (avg_r << 16) | (avg_g << 8) | avg_b;
+        let has_color = self.colored_count > 0;
+        let color = if has_color {
+            let colored_count = self.colored_count as f64;
+            let avg_r = (self.sum_r / colored_count).round() as u32;
+            let avg_g = (self.sum_g / colored_count).round() as u32;
+            let avg_b = (self.sum_b / colored_count).round() as u32;
+            0xFF000000 | (avg_r << 16) | (avg_g << 8) | avg_b
+        } else {
+            0xFFFFFFFF
+        };
 
         Point3D {
             x: self.sum_x / count,
             y: self.sum_y / count,
             z: self.sum_z / count,
             color,
+            has_color,
         }
     }
 }
@@ -94,7 +106,7 @@ mod tests {
     use super::*;
 
     fn create_point(x: f64, y: f64, z: f64, color: u32) -> Point3D {
-        Point3D { x, y, z, color }
+        Point3D { x, y, z, color, has_color: true }
     }
 
     #[test]

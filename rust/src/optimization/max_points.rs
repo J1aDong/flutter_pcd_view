@@ -34,7 +34,7 @@ mod tests {
     use super::*;
 
     fn create_point(x: f64, y: f64, z: f64) -> Point3D {
-        Point3D { x, y, z, color: 0xFFFFFFFF }
+        Point3D { x, y, z, color: 0xFFFFFFFF, has_color: false }
     }
 
     #[test]

@@ -502,12 +502,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Point3D dco_decode_point_3_d(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 4) throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    if (arr.length != 5) throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
     return Point3D(
       x: dco_decode_f_64(arr[0]),
       y: dco_decode_f_64(arr[1]),
       z: dco_decode_f_64(arr[2]),
       color: dco_decode_u_32(arr[3]),
+      hasColor: dco_decode_bool(arr[4]),
     );
   }
 
@@ -746,7 +747,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_y = sse_decode_f_64(deserializer);
     var var_z = sse_decode_f_64(deserializer);
     var var_color = sse_decode_u_32(deserializer);
-    return Point3D(x: var_x, y: var_y, z: var_z, color: var_color);
+    var var_hasColor = sse_decode_bool(deserializer);
+    return Point3D(x: var_x, y: var_y, z: var_z, color: var_color, hasColor: var_hasColor);
   }
 
   @protected
@@ -964,6 +966,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_64(self.y, serializer);
     sse_encode_f_64(self.z, serializer);
     sse_encode_u_32(self.color, serializer);
+    sse_encode_bool(self.hasColor, serializer);
   }
 
   @protected

@@ -33,8 +33,7 @@ class PerformanceConfig {
   });
 
   /// 是否启用任何优化
-  bool get isEnabled =>
-      enableDeduplication || voxelSize > 0.0 || maxPoints > 0;
+  bool get isEnabled => enableDeduplication || voxelSize > 0.0 || maxPoints > 0;
 
   PerformanceConfig copyWith({
     bool? enableDeduplication,
@@ -68,13 +67,13 @@ class PerformanceConfig {
 
   @override
   int get hashCode => Object.hash(
-        enableDeduplication,
-        dedupPrecision,
-        voxelSize,
-        maxPoints,
-        nativePointBudget,
-        nativeRenderScale,
-      );
+    enableDeduplication,
+    dedupPrecision,
+    voxelSize,
+    maxPoints,
+    nativePointBudget,
+    nativeRenderScale,
+  );
 }
 
 /// 统计离群点去除（SOR）配置
@@ -85,19 +84,10 @@ class SORConfig {
   /// 标准差倍数阈值
   final double stdRatio;
 
-  const SORConfig({
-    this.k = 30,
-    this.stdRatio = 2.0,
-  });
+  const SORConfig({this.k = 30, this.stdRatio = 2.0});
 
-  SORConfig copyWith({
-    int? k,
-    double? stdRatio,
-  }) {
-    return SORConfig(
-      k: k ?? this.k,
-      stdRatio: stdRatio ?? this.stdRatio,
-    );
+  SORConfig copyWith({int? k, double? stdRatio}) {
+    return SORConfig(k: k ?? this.k, stdRatio: stdRatio ?? this.stdRatio);
   }
 
   @override
@@ -120,15 +110,9 @@ class RORConfig {
   /// 最小邻居数
   final int minNeighbors;
 
-  const RORConfig({
-    this.radius = 0.05,
-    this.minNeighbors = 3,
-  });
+  const RORConfig({this.radius = 0.05, this.minNeighbors = 3});
 
-  RORConfig copyWith({
-    double? radius,
-    int? minNeighbors,
-  }) {
+  RORConfig copyWith({double? radius, int? minNeighbors}) {
     return RORConfig(
       radius: radius ?? this.radius,
       minNeighbors: minNeighbors ?? this.minNeighbors,
@@ -151,8 +135,10 @@ class RORConfig {
 enum ConnectMode {
   /// 无连接（仅点）
   none,
+
   /// 顺序连接（按文件顺序）
   sequential,
+
   /// 近邻连接
   nearestNeighbor,
 }
@@ -213,14 +199,11 @@ class ProcessingConfig {
   /// 连接配置（null = 禁用）
   final ConnectConfig? connect;
 
-  const ProcessingConfig({
-    this.sor,
-    this.ror,
-    this.connect,
-  });
+  const ProcessingConfig({this.sor, this.ror, this.connect});
 
   /// 是否启用任何处理
-  bool get isEnabled => sor != null || ror != null || (connect?.isEnabled ?? false);
+  bool get isEnabled =>
+      sor != null || ror != null || (connect?.isEnabled ?? false);
 
   /// copyWith 支持显式设置 null 值（用于关闭功能）
   /// 传入 null 会将对应配置设为 null（禁用）
@@ -337,6 +320,9 @@ class ViewerConfig {
   /// 背景颜色
   final Color backgroundColor;
 
+  /// 点颜色（用于无自定义颜色点的默认显示）
+  final Color pointColor;
+
   /// 是否显示坐标轴
   final bool showAxes;
 
@@ -355,6 +341,7 @@ class ViewerConfig {
   const ViewerConfig({
     this.pointSize = 2.0,
     this.backgroundColor = Colors.black,
+    this.pointColor = Colors.white,
     this.showAxes = true,
     this.grid = const GridConfig(),
     this.camera = const CameraConfig(),
@@ -365,6 +352,7 @@ class ViewerConfig {
   ViewerConfig copyWith({
     double? pointSize,
     Color? backgroundColor,
+    Color? pointColor,
     bool? showAxes,
     GridConfig? grid,
     CameraConfig? camera,
@@ -374,6 +362,7 @@ class ViewerConfig {
     return ViewerConfig(
       pointSize: pointSize ?? this.pointSize,
       backgroundColor: backgroundColor ?? this.backgroundColor,
+      pointColor: pointColor ?? this.pointColor,
       showAxes: showAxes ?? this.showAxes,
       grid: grid ?? this.grid,
       camera: camera ?? this.camera,
@@ -389,10 +378,18 @@ class ViewerConfig {
           runtimeType == other.runtimeType &&
           pointSize == other.pointSize &&
           backgroundColor == other.backgroundColor &&
+          pointColor == other.pointColor &&
           showAxes == other.showAxes &&
           performance == other.performance &&
           processing == other.processing;
 
   @override
-  int get hashCode => Object.hash(pointSize, backgroundColor, showAxes, performance, processing);
+  int get hashCode => Object.hash(
+    pointSize,
+    backgroundColor,
+    pointColor,
+    showAxes,
+    performance,
+    processing,
+  );
 }

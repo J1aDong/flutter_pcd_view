@@ -69,6 +69,7 @@ pub fn merge_point_clouds(sources: &[Vec<Point3D>], config: &MergeConfig) -> Mer
                 y: point.y,
                 z: point.z,
                 color: color.unwrap_or(point.color),
+                has_color: color.is_some() || point.has_color,
             });
         }
     }
@@ -134,6 +135,7 @@ mod tests {
             y,
             z,
             color: 0xFFFFFFFF,
+            has_color: false,
         }
     }
 

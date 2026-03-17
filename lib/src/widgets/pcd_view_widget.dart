@@ -98,8 +98,10 @@ class _PcdViewState extends State<PcdView> {
   double _nativeRotationY = 0;
   double _nativeZoom = 1.0;
 
-  NativeCameraController get _controller => widget.controller ?? _internalController;
-  bool get _supportsNativeRenderer => !kIsWeb &&
+  NativeCameraController get _controller =>
+      widget.controller ?? _internalController;
+  bool get _supportsNativeRenderer =>
+      !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS);
 
@@ -132,7 +134,8 @@ class _PcdViewState extends State<PcdView> {
       return;
     }
 
-    if (_didSceneConfigChange(oldWidget.config, widget.config) && _rawPoints.isNotEmpty) {
+    if (_didSceneConfigChange(oldWidget.config, widget.config) &&
+        _rawPoints.isNotEmpty) {
       unawaited(
         _prepareScene(
           requestId: _activeRequestId,
@@ -155,7 +158,8 @@ class _PcdViewState extends State<PcdView> {
 
   @override
   void dispose() {
-    if ((_phase == _PcdViewPhase.loading || _phase == _PcdViewPhase.preparing) &&
+    if ((_phase == _PcdViewPhase.loading ||
+            _phase == _PcdViewPhase.preparing) &&
         _activeRequestId > 0) {
       _logViewer(
         event: 'cancel_dispose',
@@ -191,7 +195,9 @@ class _PcdViewState extends State<PcdView> {
 
     if (mounted) {
       setState(() {
-        _phase = widget.filePath != null ? _PcdViewPhase.loading : _PcdViewPhase.preparing;
+        _phase = widget.filePath != null
+            ? _PcdViewPhase.loading
+            : _PcdViewPhase.preparing;
         _rawPoints = const [];
         _lineSegments = const [];
         _nativeScene = null;
@@ -282,7 +288,9 @@ class _PcdViewState extends State<PcdView> {
         return;
       }
 
-      if (originalCount != null && finalCount != null && widget.onOptimized != null) {
+      if (originalCount != null &&
+          finalCount != null &&
+          widget.onOptimized != null) {
         widget.onOptimized!.call(
           OptimizationStats(
             originalCount: originalCount,
@@ -537,7 +545,7 @@ class _PcdViewState extends State<PcdView> {
           x: point.x,
           y: point.y,
           z: point.z,
-          color: Color(point.color),
+          color: point.hasColor ? Color(point.color) : config.pointColor,
         ),
       );
     }
@@ -546,10 +554,30 @@ class _PcdViewState extends State<PcdView> {
       final range = config.grid.range;
       final step = config.grid.step;
       for (double y = -range; y <= range; y += step) {
-        _appendLine(lineVertices, bounds, -range, y, 0, range, y, 0, config.grid.color);
+        _appendLine(
+          lineVertices,
+          bounds,
+          -range,
+          y,
+          0,
+          range,
+          y,
+          0,
+          config.grid.color,
+        );
       }
       for (double x = -range; x <= range; x += step) {
-        _appendLine(lineVertices, bounds, x, -range, 0, x, range, 0, config.grid.color);
+        _appendLine(
+          lineVertices,
+          bounds,
+          x,
+          -range,
+          0,
+          x,
+          range,
+          0,
+          config.grid.color,
+        );
       }
     }
 
@@ -674,7 +702,8 @@ class _NativePcdTextureRenderer extends StatefulWidget {
     required double rotationX,
     required double rotationY,
     required double zoom,
-  }) onCameraChanged;
+  })
+  onCameraChanged;
 
   const _NativePcdTextureRenderer({
     required this.textureId,
@@ -687,7 +716,8 @@ class _NativePcdTextureRenderer extends StatefulWidget {
   });
 
   @override
-  State<_NativePcdTextureRenderer> createState() => _NativePcdTextureRendererState();
+  State<_NativePcdTextureRenderer> createState() =>
+      _NativePcdTextureRendererState();
 }
 
 class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer> {
@@ -734,7 +764,8 @@ class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer> {
                 event: 'texture_viewport_request',
                 requestId: 0,
                 fileLabel: 'native_texture',
-                message: 'size=${size.width.toStringAsFixed(1)}x${size.height.toStringAsFixed(1)}',
+                message:
+                    'size=${size.width.toStringAsFixed(1)}x${size.height.toStringAsFixed(1)}',
               );
               unawaited(widget.onViewportChanged(size));
             });
@@ -770,7 +801,9 @@ class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer> {
                 _lastY = details.localFocalPoint.dy;
 
                 if (details.pointerCount > 1) {
-                  _zoom = (_scaleBase * details.scale).clamp(0.1, 10.0).toDouble();
+                  _zoom = (_scaleBase * details.scale)
+                      .clamp(0.1, 10.0)
+                      .toDouble();
                 } else {
                   _rotationX = _rotationX + dy / 16;
                   _rotationY = _rotationY + dx / 16;
@@ -825,11 +858,7 @@ class _StatusView extends StatelessWidget {
                   child: CircularProgressIndicator(),
                 )
               else
-                Icon(
-                  Icons.info_outline,
-                  size: 36,
-                  color: foregroundColor,
-                ),
+                Icon(Icons.info_outline, size: 36, color: foregroundColor),
               const SizedBox(height: 16),
               Text(
                 title,
@@ -901,7 +930,12 @@ class _SceneBounds {
 
   _SceneNormalizer get normalizer {
     if (!minX.isFinite) {
-      return const _SceneNormalizer(centerX: 0, centerY: 0, centerZ: 0, scale: 1);
+      return const _SceneNormalizer(
+        centerX: 0,
+        centerY: 0,
+        centerZ: 0,
+        scale: 1,
+      );
     }
     final centerX = (minX + maxX) / 2;
     final centerY = (minY + maxY) / 2;
@@ -909,7 +943,11 @@ class _SceneBounds {
     final extentX = maxX - minX;
     final extentY = maxY - minY;
     final extentZ = maxZ - minZ;
-    final maxExtent = [extentX, extentY, extentZ].reduce((a, b) => a > b ? a : b);
+    final maxExtent = [
+      extentX,
+      extentY,
+      extentZ,
+    ].reduce((a, b) => a > b ? a : b);
     final scale = maxExtent <= 0 ? 1.0 : maxExtent / 2;
     return _SceneNormalizer(
       centerX: centerX,
@@ -974,6 +1012,7 @@ bool _didSourceChange(PcdView oldWidget, PcdView newWidget) {
 bool _didSceneConfigChange(ViewerConfig oldConfig, ViewerConfig newConfig) {
   return oldConfig.pointSize != newConfig.pointSize ||
       oldConfig.backgroundColor != newConfig.backgroundColor ||
+      oldConfig.pointColor != newConfig.pointColor ||
       oldConfig.showAxes != newConfig.showAxes ||
       oldConfig.grid.visible != newConfig.grid.visible ||
       oldConfig.grid.range != newConfig.grid.range ||

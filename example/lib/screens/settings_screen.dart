@@ -133,6 +133,10 @@ class SettingsScreen extends HookWidget {
               color: config.backgroundColor,
               onChanged: configNotifier.updateBackgroundColor,
             ),
+            _PointColorPicker(
+              color: config.pointColor,
+              onChanged: configNotifier.updatePointColor,
+            ),
           ],
         );
       },
@@ -150,9 +154,9 @@ class _SectionTitle extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         title,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+        style: Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -188,10 +192,7 @@ class _DedupPrecisionSlider extends StatelessWidget {
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('去重精度'),
-            Text('${value.toStringAsFixed(4)} m'),
-          ],
+          children: [const Text('去重精度'), Text('${value.toStringAsFixed(4)} m')],
         ),
         Slider(
           value: value,
@@ -247,7 +248,9 @@ class _MaxPointsInput extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = useTextEditingController(text: value > 0 ? value.toString() : '');
+    final controller = useTextEditingController(
+      text: value > 0 ? value.toString() : '',
+    );
 
     return ListTile(
       title: const Text('最大点数（解析优化）'),
@@ -281,7 +284,9 @@ class _NativePointBudgetInput extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = useTextEditingController(text: value > 0 ? value.toString() : '');
+    final controller = useTextEditingController(
+      text: value > 0 ? value.toString() : '',
+    );
 
     return ListTile(
       title: const Text('原生渲染点预算'),
@@ -311,7 +316,10 @@ class _NativeRenderScaleSlider extends StatelessWidget {
   final double value;
   final ValueChanged<double> onChanged;
 
-  const _NativeRenderScaleSlider({required this.value, required this.onChanged});
+  const _NativeRenderScaleSlider({
+    required this.value,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -354,10 +362,7 @@ class _PointSizeSlider extends StatelessWidget {
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('点大小'),
-            Text('${value.toStringAsFixed(1)} px'),
-          ],
+          children: [const Text('点大小'), Text('${value.toStringAsFixed(1)} px')],
         ),
         Slider(
           value: value,
@@ -400,10 +405,7 @@ class _GridRangeSlider extends StatelessWidget {
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('网格范围'),
-            Text('${value.toStringAsFixed(0)} m'),
-          ],
+          children: [const Text('网格范围'), Text('${value.toStringAsFixed(0)} m')],
         ),
         Slider(
           value: value,
@@ -464,16 +466,80 @@ class _BackgroundColorPicker extends StatelessWidget {
         content: Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: [
-            Colors.black,
-            Colors.white,
-            Colors.grey[800]!,
-            Colors.blue[900]!,
-            Colors.indigo[900]!,
-          ].map((c) => _ColorOption(color: c, onTap: () {
-            onChanged(c);
-            Navigator.pop(context);
-          })).toList(),
+          children:
+              [
+                    Colors.black,
+                    Colors.white,
+                    Colors.grey[800]!,
+                    Colors.blue[900]!,
+                    Colors.indigo[900]!,
+                  ]
+                  .map(
+                    (c) => _ColorOption(
+                      color: c,
+                      onTap: () {
+                        onChanged(c);
+                        Navigator.pop(context);
+                      },
+                    ),
+                  )
+                  .toList(),
+        ),
+      ),
+    );
+  }
+}
+
+class _PointColorPicker extends StatelessWidget {
+  final Color color;
+  final ValueChanged<Color> onChanged;
+
+  const _PointColorPicker({required this.color, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      title: const Text('点颜色'),
+      trailing: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: color,
+          border: Border.all(color: Colors.grey),
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+      onTap: () => _showColorPicker(context),
+    );
+  }
+
+  void _showColorPicker(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('选择点颜色'),
+        content: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children:
+              [
+                    Colors.black,
+                    Colors.white,
+                    Colors.red,
+                    Colors.green,
+                    Colors.blue,
+                    Colors.yellow,
+                  ]
+                  .map(
+                    (c) => _ColorOption(
+                      color: c,
+                      onTap: () {
+                        onChanged(c);
+                        Navigator.pop(context);
+                      },
+                    ),
+                  )
+                  .toList(),
         ),
       ),
     );
@@ -534,10 +600,7 @@ class _SORKSlider extends StatelessWidget {
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('近邻数量 (K)'),
-            Text('$value'),
-          ],
+          children: [const Text('近邻数量 (K)'), Text('$value')],
         ),
         Slider(
           value: value.toDouble(),
@@ -564,10 +627,7 @@ class _SORStdRatioSlider extends StatelessWidget {
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('标准差倍数'),
-            Text(value.toStringAsFixed(1)),
-          ],
+          children: [const Text('标准差倍数'), Text(value.toStringAsFixed(1))],
         ),
         Slider(
           value: value,
@@ -616,10 +676,7 @@ class _RORRadiusSlider extends StatelessWidget {
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('搜索半径'),
-            Text('${value.toStringAsFixed(2)} m'),
-          ],
+          children: [const Text('搜索半径'), Text('${value.toStringAsFixed(2)} m')],
         ),
         Slider(
           value: value,
@@ -646,10 +703,7 @@ class _RORMinNeighborsSlider extends StatelessWidget {
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('最小邻居数'),
-            Text('$value'),
-          ],
+          children: [const Text('最小邻居数'), Text('$value')],
         ),
         Slider(
           value: value.toDouble(),
@@ -698,10 +752,7 @@ class _ConnectModeSelector extends StatelessWidget {
       trailing: DropdownButton<ConnectMode>(
         value: value,
         items: const [
-          DropdownMenuItem(
-            value: ConnectMode.sequential,
-            child: Text('顺序连接'),
-          ),
+          DropdownMenuItem(value: ConnectMode.sequential, child: Text('顺序连接')),
           DropdownMenuItem(
             value: ConnectMode.nearestNeighbor,
             child: Text('近邻连接'),
@@ -719,7 +770,10 @@ class _ConnectMaxDistanceSlider extends StatelessWidget {
   final double value;
   final ValueChanged<double> onChanged;
 
-  const _ConnectMaxDistanceSlider({required this.value, required this.onChanged});
+  const _ConnectMaxDistanceSlider({
+    required this.value,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {

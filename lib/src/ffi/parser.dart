@@ -11,11 +11,12 @@ class Point3D {
   final double y;
   final double z;
   final int color;
+  final bool hasColor;
 
-  const Point3D({required this.x, required this.y, required this.z, required this.color});
+  const Point3D({required this.x, required this.y, required this.z, required this.color, required this.hasColor});
 
   @override
-  int get hashCode => x.hashCode ^ y.hashCode ^ z.hashCode ^ color.hashCode;
+  int get hashCode => x.hashCode ^ y.hashCode ^ z.hashCode ^ color.hashCode ^ hasColor.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -25,5 +26,6 @@ class Point3D {
           x == other.x &&
           y == other.y &&
           z == other.z &&
-          color == other.color;
+          color == other.color &&
+          hasColor == other.hasColor;
 }

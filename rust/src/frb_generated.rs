@@ -628,11 +628,13 @@ impl SseDecode for crate::parser::Point3D {
         let mut var_y = <f64>::sse_decode(deserializer);
         let mut var_z = <f64>::sse_decode(deserializer);
         let mut var_color = <u32>::sse_decode(deserializer);
+        let mut var_hasColor = <bool>::sse_decode(deserializer);
         return crate::parser::Point3D {
             x: var_x,
             y: var_y,
             z: var_z,
             color: var_color,
+            has_color: var_hasColor,
         };
     }
 }
@@ -862,6 +864,7 @@ impl flutter_rust_bridge::IntoDart for crate::parser::Point3D {
             self.y.into_into_dart().into_dart(),
             self.z.into_into_dart().into_dart(),
             self.color.into_into_dart().into_dart(),
+            self.has_color.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -1094,6 +1097,7 @@ impl SseEncode for crate::parser::Point3D {
         <f64>::sse_encode(self.y, serializer);
         <f64>::sse_encode(self.z, serializer);
         <u32>::sse_encode(self.color, serializer);
+        <bool>::sse_encode(self.has_color, serializer);
     }
 }
 
