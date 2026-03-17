@@ -20,22 +20,22 @@
 
 ## 4. 移除 Flutter/DiTreDi 渲染路径
 
-- [ ] 4.1 删除 `DiTreDi` 渲染接入代码和 figures 组装逻辑
-- [ ] 4.2 删除 `Point3DAdapter` 等仅服务于 Flutter 渲染路径的适配层
-- [ ] 4.3 从 `pubspec.yaml` 中移除 `ditredi` 依赖及相关无用代码引用
-- [ ] 4.4 清理与旧渲染路径相关的状态、日志和分支逻辑
+- [x] 4.1 删除 `DiTreDi` 渲染接入代码和 figures 组装逻辑
+- [x] 4.2 删除 `Point3DAdapter` 等仅服务于 Flutter 渲染路径的适配层
+- [x] 4.3 从 `pubspec.yaml` 中移除 `ditredi` 依赖及相关无用代码引用
+- [x] 4.4 清理与旧渲染路径相关的状态、日志和分支逻辑
 
 ## 5. 配置与示例应用同步
 
 - [x] 5.1 扩展 `ViewerConfig` 与性能配置，使其适配 native renderer 所需参数
 - [x] 5.2 更新 example 中的查看器页面，验证 native texture 渲染、状态展示和交互逻辑
 - [x] 5.3 更新 example 中的设置页面，验证 native renderer 配置实时生效
-- [ ] 5.4 补充 native-only 架构下的使用说明与限制说明
+- [x] 5.4 补充 native-only 架构下的使用说明与限制说明
 
 ## 6. Android 验证与后续 iOS 计划
 
-- [ ] 6.1 在 Android 真机验证 native texture 渲染、生命周期和内存释放
-- [ ] 6.2 验证高点数场景下的旋转、缩放和切换文件流畅度
-- [ ] 6.3 验证 `fromFile` 与 `fromPoints` 两种入口都能正确进入 Android native renderer
+- [ ] 6.1 在 Android 真机验证 native texture 渲染、生命周期和内存释放（已完成安装、启动、前后台恢复验证，内存释放仍待进一步收口）
+- [ ] 6.2 验证高点数场景下的旋转、缩放和切换文件流畅度（已完成一轮手势真机调试，切换文件与更完整流畅度复测仍待继续）
+- [ ] 6.3 验证 `fromFile` 与 `fromPoints` 两种入口都能正确进入 Android native renderer（`fromFile` 已验证，`fromPoints` 仍待单独补测）
 - [x] 6.4 运行 Flutter / Rust / Android 相关静态检查与测试，修复回归问题
 - [ ] 6.5 在 Android 渲染链稳定后补齐 iOS Metal 的 texture 桥接与渲染实现

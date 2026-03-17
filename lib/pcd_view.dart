@@ -30,13 +30,15 @@ library;
 // Widget
 export 'src/widgets/pcd_view_widget.dart';
 
+// Native camera controller
+export 'src/native/native_camera_controller.dart';
+
 // 配置
 export 'src/config/viewer_config.dart';
 
 // 数据模型
 export 'src/models/point_3d.dart';
 export 'src/models/pcd_data.dart';
-export 'src/models/point_3d_adapter.dart';
 
 // FFI 接口
 export 'src/ffi/api.dart';

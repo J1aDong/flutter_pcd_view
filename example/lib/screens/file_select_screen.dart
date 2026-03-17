@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:ditredi/ditredi.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:flutter_pcd_view/pcd_view.dart';
 
 import '../config/viewer_config_notifier.dart';
 import 'viewer_screen.dart';
@@ -20,7 +20,7 @@ class FileSelectScreen extends HookWidget {
     final fileList = useState<List<String>>([]);
     final selectedFile = useState<String?>(null);
     final viewerController = useMemoized(
-      () => DiTreDiController(
+      () => NativeCameraController(
         rotationX: configNotifier.config.camera.rotationX,
         rotationY: configNotifier.config.camera.rotationY,
         userScale: configNotifier.config.camera.zoom,
@@ -60,7 +60,7 @@ class FileSelectScreen extends HookWidget {
         ),
         _PlayButton(
           enabled: selectedFile.value != null,
-          onPlay: () => Navigator.push<DiTreDiController>(
+          onPlay: () => Navigator.push<NativeCameraController>(
             context,
             MaterialPageRoute(
               builder: (_) => ViewerScreen(

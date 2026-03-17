@@ -1,15 +1,13 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 
-import 'package:ditredi/ditredi.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:vector_math/vector_math_64.dart' hide Colors;
 
 import '../config/viewer_config.dart';
 import '../ffi/frb.dart' as frb;
-import '../models/point_3d_adapter.dart';
+import '../native/native_camera_controller.dart';
 import '../native/native_renderer_bridge.dart';
 
 class ProcessingStats {
@@ -52,7 +50,7 @@ class PcdView extends StatefulWidget {
   final List<frb.Point3D>? points;
   final String? filePath;
   final ViewerConfig config;
-  final DiTreDiController? controller;
+  final NativeCameraController? controller;
   final void Function(String error)? onError;
   final void Function(int pointCount)? onLoaded;
   final void Function(OptimizationStats stats)? onOptimized;
@@ -87,12 +85,11 @@ class PcdView extends StatefulWidget {
 class _PcdViewState extends State<PcdView> {
   static int _requestSeed = 0;
 
-  late final DiTreDiController _internalController;
+  late final NativeCameraController _internalController;
 
   _PcdViewPhase _phase = _PcdViewPhase.idle;
   List<frb.Point3D> _rawPoints = const [];
   List<frb.LineSegmentData> _lineSegments = const [];
-  List<Model3D> _figures = const [];
   _PackedRenderScene? _nativeScene;
   NativeRendererBridge? _nativeRenderer;
   String? _errorMessage;
@@ -101,8 +98,8 @@ class _PcdViewState extends State<PcdView> {
   double _nativeRotationY = 0;
   double _nativeZoom = 1.0;
 
-  DiTreDiController get _controller => widget.controller ?? _internalController;
-  bool get _usesAndroidNativeRenderer =>
+  NativeCameraController get _controller => widget.controller ?? _internalController;
+  bool get _supportsNativeRenderer =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   @override
@@ -112,12 +109,22 @@ class _PcdViewState extends State<PcdView> {
     _nativeRotationX = _controller.rotationX;
     _nativeRotationY = _controller.rotationY;
     _nativeZoom = _controller.userScale;
-    unawaited(_startSourceRequest());
+
+    if (_supportsNativeRenderer) {
+      unawaited(_startSourceRequest());
+    } else {
+      _phase = _PcdViewPhase.error;
+      _errorMessage = '当前仅支持 Android 原生渲染，iOS Metal 待补';
+    }
   }
 
   @override
   void didUpdateWidget(covariant PcdView oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    if (!_supportsNativeRenderer) {
+      return;
+    }
 
     if (_didSourceChange(oldWidget, widget)) {
       unawaited(_startSourceRequest());
@@ -175,7 +182,6 @@ class _PcdViewState extends State<PcdView> {
         _phase = _PcdViewPhase.idle;
         _rawPoints = const [];
         _lineSegments = const [];
-        _figures = const [];
         _nativeScene = null;
         _errorMessage = null;
       });
@@ -187,7 +193,6 @@ class _PcdViewState extends State<PcdView> {
         _phase = widget.filePath != null ? _PcdViewPhase.loading : _PcdViewPhase.preparing;
         _rawPoints = const [];
         _lineSegments = const [];
-        _figures = const [];
         _nativeScene = null;
         _errorMessage = null;
       });
@@ -363,71 +368,42 @@ class _PcdViewState extends State<PcdView> {
     await Future<void>.delayed(Duration.zero);
 
     final prepareWatch = Stopwatch()..start();
+    final scene = _buildPackedScene(points, lines, widget.config);
+    await _ensureNativeRenderer();
+    await _nativeRenderer!.updateConfig(widget.config);
+    await _nativeRenderer!.loadPackedScene(
+      packedPoints: scene.packedPoints,
+      packedLines: scene.packedLines,
+      pointCount: scene.pointCount,
+      lineVertexCount: scene.lineVertexCount,
+    );
+    await _nativeRenderer!.updateCamera(
+      rotationX: _nativeRotationX,
+      rotationY: _nativeRotationY,
+      zoom: _nativeZoom,
+    );
+    prepareWatch.stop();
 
-    if (_usesAndroidNativeRenderer) {
-      final scene = _buildPackedScene(points, lines, widget.config);
-      await _ensureNativeRenderer();
-      await _nativeRenderer!.updateConfig(widget.config);
-      await _nativeRenderer!.loadPackedScene(
-        packedPoints: scene.packedPoints,
-        packedLines: scene.packedLines,
-        pointCount: scene.pointCount,
-        lineVertexCount: scene.lineVertexCount,
+    if (!_isCurrentRequest(requestId)) {
+      _logViewer(
+        event: 'prepare_stale',
+        requestId: requestId,
+        fileLabel: _sourceLabel,
+        elapsed: prepareWatch.elapsed,
+        pointCount: points.length,
+        message: 'prepared scene ignored because a newer request exists',
       );
-      await _nativeRenderer!.updateCamera(
-        rotationX: _nativeRotationX,
-        rotationY: _nativeRotationY,
-        zoom: _nativeZoom,
-      );
-      prepareWatch.stop();
-
-      if (!_isCurrentRequest(requestId)) {
-        _logViewer(
-          event: 'prepare_stale',
-          requestId: requestId,
-          fileLabel: _sourceLabel,
-          elapsed: prepareWatch.elapsed,
-          pointCount: points.length,
-          message: 'prepared scene ignored because a newer request exists',
-        );
-        return;
-      }
-
-      if (!mounted) return;
-      setState(() {
-        _rawPoints = points;
-        _lineSegments = lines;
-        _nativeScene = scene;
-        _figures = const [];
-        _phase = _PcdViewPhase.ready;
-        _errorMessage = null;
-      });
-    } else {
-      final figures = _buildFigures(points, lines, widget.config);
-      prepareWatch.stop();
-
-      if (!_isCurrentRequest(requestId)) {
-        _logViewer(
-          event: 'prepare_stale',
-          requestId: requestId,
-          fileLabel: _sourceLabel,
-          elapsed: prepareWatch.elapsed,
-          pointCount: points.length,
-          message: 'prepared scene ignored because a newer request exists',
-        );
-        return;
-      }
-
-      if (!mounted) return;
-      setState(() {
-        _rawPoints = points;
-        _lineSegments = lines;
-        _figures = figures;
-        _nativeScene = null;
-        _phase = _PcdViewPhase.ready;
-        _errorMessage = null;
-      });
+      return;
     }
+
+    if (!mounted) return;
+    setState(() {
+      _rawPoints = points;
+      _lineSegments = lines;
+      _nativeScene = scene;
+      _phase = _PcdViewPhase.ready;
+      _errorMessage = null;
+    });
 
     _logViewer(
       event: 'prepare_done',
@@ -586,96 +562,8 @@ class _PcdViewState extends State<PcdView> {
     );
   }
 
-  List<Model3D> _buildFigures(
-    List<frb.Point3D> points,
-    List<frb.LineSegmentData> lines,
-    ViewerConfig config,
-  ) {
-    final figures = <Model3D>[];
-
-    if (config.grid.visible) {
-      final gridLines = <Line3D>[];
-      final range = config.grid.range;
-      final step = config.grid.step;
-
-      for (double y = -range; y <= range; y += step) {
-        gridLines.add(
-          Line3D(
-            Vector3(-range, y, 0),
-            Vector3(range, y, 0),
-            width: 1,
-            color: config.grid.color,
-          ),
-        );
-      }
-
-      for (double x = -range; x <= range; x += step) {
-        gridLines.add(
-          Line3D(
-            Vector3(x, -range, 0),
-            Vector3(x, range, 0),
-            width: 1,
-            color: config.grid.color,
-          ),
-        );
-      }
-
-      figures.add(Group3D(gridLines));
-    }
-
-    if (config.showAxes) {
-      figures.add(
-        Group3D([
-          Line3D(
-            Vector3.zero(),
-            Vector3(config.grid.range / 2, 0, 0),
-            width: 2,
-            color: Colors.red,
-          ),
-          Line3D(
-            Vector3.zero(),
-            Vector3(0, config.grid.range / 2, 0),
-            width: 2,
-            color: Colors.green,
-          ),
-          Line3D(
-            Vector3.zero(),
-            Vector3(0, 0, config.grid.range / 2),
-            width: 2,
-            color: Colors.blue,
-          ),
-        ]),
-      );
-    }
-
-    if (lines.isNotEmpty) {
-      final lineFigures = lines
-          .map(
-            (line) => Line3D(
-              Vector3(line.start.x, line.start.y, line.start.z),
-              Vector3(line.end.x, line.end.y, line.end.z),
-              width: 1,
-              color: const Color(0xFF00FF00),
-            ),
-          )
-          .toList();
-      figures.add(Group3D(lineFigures));
-    }
-
-    figures.add(
-      Group3D(
-        Point3DAdapter.ffiToDitrediList(
-          points,
-          pointSize: config.pointSize,
-        ),
-      ),
-    );
-
-    return figures;
-  }
-
-  DiTreDiController _createController(ViewerConfig config) {
-    return DiTreDiController(
+  NativeCameraController _createController(ViewerConfig config) {
+    return NativeCameraController(
       rotationX: config.camera.rotationX,
       rotationY: config.camera.rotationY,
       userScale: config.camera.zoom,
@@ -714,26 +602,7 @@ class _PcdViewState extends State<PcdView> {
           foregroundColor: Colors.redAccent,
         );
       case _PcdViewPhase.ready:
-        if (_usesAndroidNativeRenderer) {
-          if (_nativeRenderer == null || _nativeScene == null) {
-            return _StatusView(
-              backgroundColor: widget.config.backgroundColor,
-              title: '没有点云数据',
-              subtitle: _sourceLabel,
-              loading: false,
-            );
-          }
-          return _NativePcdTextureRenderer(
-            textureId: _nativeRenderer!.textureId,
-            backgroundColor: widget.config.backgroundColor,
-            rotationX: _nativeRotationX,
-            rotationY: _nativeRotationY,
-            zoom: _nativeZoom,
-            onViewportChanged: _handleNativeViewport,
-            onCameraChanged: _handleNativeCameraUpdate,
-          );
-        }
-        if (_figures.isEmpty) {
+        if (_nativeRenderer == null || _nativeScene == null) {
           return _StatusView(
             backgroundColor: widget.config.backgroundColor,
             title: '没有点云数据',
@@ -741,10 +610,14 @@ class _PcdViewState extends State<PcdView> {
             loading: false,
           );
         }
-        return _PcdViewRenderer(
-          controller: _controller,
-          figures: _figures,
+        return _NativePcdTextureRenderer(
+          textureId: _nativeRenderer!.textureId,
           backgroundColor: widget.config.backgroundColor,
+          rotationX: _nativeRotationX,
+          rotationY: _nativeRotationY,
+          zoom: _nativeZoom,
+          onViewportChanged: _handleNativeViewport,
+          onCameraChanged: _handleNativeCameraUpdate,
         );
       case _PcdViewPhase.idle:
         return _StatusView(
@@ -876,72 +749,6 @@ class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer> {
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-class _PcdViewRenderer extends StatefulWidget {
-  final DiTreDiController controller;
-  final List<Model3D> figures;
-  final Color backgroundColor;
-
-  const _PcdViewRenderer({
-    required this.controller,
-    required this.figures,
-    required this.backgroundColor,
-  });
-
-  @override
-  State<_PcdViewRenderer> createState() => _PcdViewRendererState();
-}
-
-class _PcdViewRendererState extends State<_PcdViewRenderer> {
-  double _lastX = 0;
-  double _lastY = 0;
-  double _scaleBase = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: widget.backgroundColor,
-      child: Listener(
-        onPointerSignal: (pointerSignal) {
-          if (pointerSignal is PointerScrollEvent) {
-            final viewScale =
-                widget.controller.viewScale == 0 ? 1.0 : widget.controller.viewScale;
-            final scaledDy = pointerSignal.scrollDelta.dy / viewScale;
-            widget.controller.update(
-              userScale: widget.controller.userScale - scaledDy,
-            );
-          }
-        },
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onScaleStart: (details) {
-            _scaleBase = widget.controller.userScale;
-            _lastX = details.localFocalPoint.dx;
-            _lastY = details.localFocalPoint.dy;
-          },
-          onScaleUpdate: (details) {
-            final dx = details.localFocalPoint.dx - _lastX;
-            final dy = details.localFocalPoint.dy - _lastY;
-
-            _lastX = details.localFocalPoint.dx;
-            _lastY = details.localFocalPoint.dy;
-
-            widget.controller.update(
-              userScale: _scaleBase * details.scale,
-              rotationX: widget.controller.rotationX - dy / 2,
-              rotationY: ((widget.controller.rotationY - dx / 2 + 360) % 360)
-                  .clamp(0, 360),
-            );
-          },
-          child: DiTreDi(
-            controller: widget.controller,
-            figures: widget.figures,
-          ),
-        ),
       ),
     );
   }

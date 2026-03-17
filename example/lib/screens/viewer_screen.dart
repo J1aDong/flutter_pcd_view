@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:ditredi/ditredi.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -13,7 +12,7 @@ enum _LoadingState { idle, loading, ready, error }
 class ViewerScreen extends HookWidget {
   final List<String> pcdFiles;
   final ViewerConfigNotifier configNotifier;
-  final DiTreDiController controller;
+  final NativeCameraController controller;
 
   const ViewerScreen({
     super.key,
@@ -48,7 +47,7 @@ class ViewerScreen extends HookWidget {
       return () => playbackTimer.value?.cancel();
     }, [isPlaying.value, loadingState.value, currentIndex.value, pcdFiles.length]);
 
-    return PopScope<DiTreDiController>(
+    return PopScope<NativeCameraController>(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) {
