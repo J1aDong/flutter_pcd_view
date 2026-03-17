@@ -17,11 +17,19 @@ class PerformanceConfig {
   /// 最大点数（0 = 无限制）
   final int maxPoints;
 
+  /// Android native renderer 的点预算（0 = 使用全部点）
+  final int nativePointBudget;
+
+  /// Android native texture 的渲染比例（1.0 = 原尺寸）
+  final double nativeRenderScale;
+
   const PerformanceConfig({
     this.enableDeduplication = false,
     this.dedupPrecision = 0.001,
     this.voxelSize = 0.0,
     this.maxPoints = 0,
+    this.nativePointBudget = 0,
+    this.nativeRenderScale = 2.0,
   });
 
   /// 是否启用任何优化
@@ -33,12 +41,16 @@ class PerformanceConfig {
     double? dedupPrecision,
     double? voxelSize,
     int? maxPoints,
+    int? nativePointBudget,
+    double? nativeRenderScale,
   }) {
     return PerformanceConfig(
       enableDeduplication: enableDeduplication ?? this.enableDeduplication,
       dedupPrecision: dedupPrecision ?? this.dedupPrecision,
       voxelSize: voxelSize ?? this.voxelSize,
       maxPoints: maxPoints ?? this.maxPoints,
+      nativePointBudget: nativePointBudget ?? this.nativePointBudget,
+      nativeRenderScale: nativeRenderScale ?? this.nativeRenderScale,
     );
   }
 
@@ -50,7 +62,9 @@ class PerformanceConfig {
           enableDeduplication == other.enableDeduplication &&
           dedupPrecision == other.dedupPrecision &&
           voxelSize == other.voxelSize &&
-          maxPoints == other.maxPoints;
+          maxPoints == other.maxPoints &&
+          nativePointBudget == other.nativePointBudget &&
+          nativeRenderScale == other.nativeRenderScale;
 
   @override
   int get hashCode => Object.hash(
@@ -58,6 +72,8 @@ class PerformanceConfig {
         dedupPrecision,
         voxelSize,
         maxPoints,
+        nativePointBudget,
+        nativeRenderScale,
       );
 }
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:ditredi/ditredi.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_pcd_view/pcd_view.dart';
@@ -96,6 +97,11 @@ class ViewerScreen extends HookWidget {
               ),
             ),
             Positioned(
+              left: 16,
+              top: 16,
+              child: _RendererModeCard(configNotifier: configNotifier),
+            ),
+            Positioned(
               right: 16,
               top: 16,
               child: _PointSizeControl(configNotifier: configNotifier),
@@ -110,6 +116,59 @@ class ViewerScreen extends HookWidget {
                 errorMessage: errorMessage.value,
                 stats: optimizationStats.value,
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RendererModeCard extends StatelessWidget {
+  final ViewerConfigNotifier configNotifier;
+
+  const _RendererModeCard({required this.configNotifier});
+
+  @override
+  Widget build(BuildContext context) {
+    final config = configNotifier.config;
+    final isAndroidNative = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+    return Card(
+      color: Colors.black.withValues(alpha: 0.72),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isAndroidNative ? Icons.memory : Icons.layers,
+                  size: 16,
+                  color: isAndroidNative ? Colors.lightGreenAccent : Colors.orangeAccent,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  isAndroidNative ? 'Android Native' : 'Fallback Renderer',
+                  style: TextStyle(
+                    color: isAndroidNative ? Colors.lightGreenAccent : Colors.orangeAccent,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '点预算: ${config.performance.nativePointBudget > 0 ? config.performance.nativePointBudget : '不限制'}',
+              style: const TextStyle(color: Colors.white70, fontSize: 11),
+            ),
+            Text(
+              '渲染比例: ${config.performance.nativeRenderScale.toStringAsFixed(2)}x',
+              style: const TextStyle(color: Colors.white70, fontSize: 11),
             ),
           ],
         ),

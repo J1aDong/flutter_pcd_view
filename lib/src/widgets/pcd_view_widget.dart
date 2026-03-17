@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:ditredi/ditredi.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:vector_math/vector_math_64.dart' hide Colors;
@@ -9,8 +10,8 @@ import 'package:vector_math/vector_math_64.dart' hide Colors;
 import '../config/viewer_config.dart';
 import '../ffi/frb.dart' as frb;
 import '../models/point_3d_adapter.dart';
+import '../native/native_renderer_bridge.dart';
 
-/// 处理结果统计
 class ProcessingStats {
   final int originalCount;
   final int afterSor;
@@ -33,12 +34,8 @@ class ProcessingStats {
 
 enum _PcdViewPhase { idle, loading, preparing, ready, error }
 
-/// 优化结果统计
 class OptimizationStats {
-  /// 原始点数
   final int originalCount;
-
-  /// 优化后点数
   final int finalCount;
 
   const OptimizationStats({
@@ -46,40 +43,19 @@ class OptimizationStats {
     required this.finalCount,
   });
 
-  /// 是否有优化
   bool get hasOptimization => originalCount != finalCount;
-
-  /// 减少比例
   double get reductionRatio =>
       originalCount > 0 ? (originalCount - finalCount) / originalCount : 0.0;
 }
 
-/// PCD 点云查看器 Widget
-///
-/// 支持从文件路径或预解析数据加载点云，提供交互式 3D 查看
 class PcdView extends StatefulWidget {
-  /// 点云数据（预解析）
   final List<frb.Point3D>? points;
-
-  /// PCD 文件路径
   final String? filePath;
-
-  /// 查看器配置
   final ViewerConfig config;
-
-  /// 自定义 DiTreDi 控制器
   final DiTreDiController? controller;
-
-  /// 加载错误回调
   final void Function(String error)? onError;
-
-  /// 加载完成回调
   final void Function(int pointCount)? onLoaded;
-
-  /// 优化完成回调（仅当启用优化时触发）
   final void Function(OptimizationStats stats)? onOptimized;
-
-  /// 处理完成回调（仅当启用处理时触发）
   final void Function(ProcessingStats stats)? onProcessed;
 
   const PcdView.fromPoints({
@@ -117,15 +93,25 @@ class _PcdViewState extends State<PcdView> {
   List<frb.Point3D> _rawPoints = const [];
   List<frb.LineSegmentData> _lineSegments = const [];
   List<Model3D> _figures = const [];
+  _PackedRenderScene? _nativeScene;
+  NativeRendererBridge? _nativeRenderer;
   String? _errorMessage;
   int _activeRequestId = 0;
+  double _nativeRotationX = 0;
+  double _nativeRotationY = 0;
+  double _nativeZoom = 1.0;
 
   DiTreDiController get _controller => widget.controller ?? _internalController;
+  bool get _usesAndroidNativeRenderer =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   @override
   void initState() {
     super.initState();
     _internalController = _createController(widget.config);
+    _nativeRotationX = _controller.rotationX;
+    _nativeRotationY = _controller.rotationY;
+    _nativeZoom = _controller.userScale;
     unawaited(_startSourceRequest());
   }
 
@@ -161,7 +147,8 @@ class _PcdViewState extends State<PcdView> {
 
   @override
   void dispose() {
-    if ((_phase == _PcdViewPhase.loading || _phase == _PcdViewPhase.preparing) && _activeRequestId > 0) {
+    if ((_phase == _PcdViewPhase.loading || _phase == _PcdViewPhase.preparing) &&
+        _activeRequestId > 0) {
       _logViewer(
         event: 'cancel_dispose',
         requestId: _activeRequestId,
@@ -170,6 +157,11 @@ class _PcdViewState extends State<PcdView> {
       );
     }
     _activeRequestId = -1;
+    final renderer = _nativeRenderer;
+    _nativeRenderer = null;
+    if (renderer != null) {
+      unawaited(renderer.dispose());
+    }
     super.dispose();
   }
 
@@ -182,7 +174,9 @@ class _PcdViewState extends State<PcdView> {
       setState(() {
         _phase = _PcdViewPhase.idle;
         _rawPoints = const [];
+        _lineSegments = const [];
         _figures = const [];
+        _nativeScene = null;
         _errorMessage = null;
       });
       return;
@@ -192,7 +186,9 @@ class _PcdViewState extends State<PcdView> {
       setState(() {
         _phase = widget.filePath != null ? _PcdViewPhase.loading : _PcdViewPhase.preparing;
         _rawPoints = const [];
+        _lineSegments = const [];
         _figures = const [];
+        _nativeScene = null;
         _errorMessage = null;
       });
     }
@@ -280,23 +276,25 @@ class _PcdViewState extends State<PcdView> {
         return;
       }
 
-      // Notify optimization stats
       if (originalCount != null && finalCount != null && widget.onOptimized != null) {
-        widget.onOptimized!.call(OptimizationStats(
-          originalCount: originalCount,
-          finalCount: finalCount,
-        ));
+        widget.onOptimized!.call(
+          OptimizationStats(
+            originalCount: originalCount,
+            finalCount: finalCount,
+          ),
+        );
       }
 
-      // Notify processing stats
       if (afterSor != null && afterRor != null && widget.onProcessed != null) {
-        widget.onProcessed!.call(ProcessingStats(
-          originalCount: originalCount ?? 0,
-          afterSor: afterSor,
-          afterRor: afterRor,
-          finalCount: finalCount ?? 0,
-          lineCount: lines.length,
-        ));
+        widget.onProcessed!.call(
+          ProcessingStats(
+            originalCount: originalCount ?? 0,
+            afterSor: afterSor,
+            afterRor: afterRor,
+            finalCount: finalCount ?? 0,
+            lineCount: lines.length,
+          ),
+        );
       }
 
       await _prepareScene(
@@ -365,29 +363,71 @@ class _PcdViewState extends State<PcdView> {
     await Future<void>.delayed(Duration.zero);
 
     final prepareWatch = Stopwatch()..start();
-    final figures = _buildFigures(points, lines, widget.config);
-    prepareWatch.stop();
 
-    if (!_isCurrentRequest(requestId)) {
-      _logViewer(
-        event: 'prepare_stale',
-        requestId: requestId,
-        fileLabel: _sourceLabel,
-        elapsed: prepareWatch.elapsed,
-        pointCount: points.length,
-        message: 'prepared scene ignored because a newer request exists',
+    if (_usesAndroidNativeRenderer) {
+      final scene = _buildPackedScene(points, lines, widget.config);
+      await _ensureNativeRenderer();
+      await _nativeRenderer!.updateConfig(widget.config);
+      await _nativeRenderer!.loadPackedScene(
+        packedPoints: scene.packedPoints,
+        packedLines: scene.packedLines,
+        pointCount: scene.pointCount,
+        lineVertexCount: scene.lineVertexCount,
       );
-      return;
-    }
+      await _nativeRenderer!.updateCamera(
+        rotationX: _nativeRotationX,
+        rotationY: _nativeRotationY,
+        zoom: _nativeZoom,
+      );
+      prepareWatch.stop();
 
-    if (!mounted) return;
-    setState(() {
-      _rawPoints = points;
-      _lineSegments = lines;
-      _figures = figures;
-      _phase = _PcdViewPhase.ready;
-      _errorMessage = null;
-    });
+      if (!_isCurrentRequest(requestId)) {
+        _logViewer(
+          event: 'prepare_stale',
+          requestId: requestId,
+          fileLabel: _sourceLabel,
+          elapsed: prepareWatch.elapsed,
+          pointCount: points.length,
+          message: 'prepared scene ignored because a newer request exists',
+        );
+        return;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _rawPoints = points;
+        _lineSegments = lines;
+        _nativeScene = scene;
+        _figures = const [];
+        _phase = _PcdViewPhase.ready;
+        _errorMessage = null;
+      });
+    } else {
+      final figures = _buildFigures(points, lines, widget.config);
+      prepareWatch.stop();
+
+      if (!_isCurrentRequest(requestId)) {
+        _logViewer(
+          event: 'prepare_stale',
+          requestId: requestId,
+          fileLabel: _sourceLabel,
+          elapsed: prepareWatch.elapsed,
+          pointCount: points.length,
+          message: 'prepared scene ignored because a newer request exists',
+        );
+        return;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _rawPoints = points;
+        _lineSegments = lines;
+        _figures = figures;
+        _nativeScene = null;
+        _phase = _PcdViewPhase.ready;
+        _errorMessage = null;
+      });
+    }
 
     _logViewer(
       event: 'prepare_done',
@@ -404,13 +444,52 @@ class _PcdViewState extends State<PcdView> {
     }
   }
 
+  Future<void> _ensureNativeRenderer() async {
+    if (_nativeRenderer != null) return;
+    _nativeRenderer = await NativeRendererBridge.create(config: widget.config);
+  }
+
+  Future<void> _handleNativeViewport(Size size) async {
+    final renderer = _nativeRenderer;
+    if (renderer == null) return;
+    await renderer.setViewport(width: size.width, height: size.height);
+  }
+
+  Future<void> _handleNativeCameraUpdate({
+    required double rotationX,
+    required double rotationY,
+    required double zoom,
+  }) async {
+    _nativeRotationX = rotationX;
+    _nativeRotationY = rotationY;
+    _nativeZoom = zoom
+        .clamp(widget.config.camera.minZoom, widget.config.camera.maxZoom)
+        .toDouble();
+    _controller.update(
+      rotationX: _nativeRotationX,
+      rotationY: _nativeRotationY,
+      userScale: _nativeZoom,
+    );
+    final renderer = _nativeRenderer;
+    if (renderer != null) {
+      await renderer.updateCamera(
+        rotationX: _nativeRotationX,
+        rotationY: _nativeRotationY,
+        zoom: _nativeZoom,
+      );
+    }
+  }
+
   frb.ProcessingOptions _buildProcessingOptions(ProcessingConfig config) {
     return frb.ProcessingOptions(
       sor: config.sor != null
           ? frb.SOROptions(k: config.sor!.k, stdRatio: config.sor!.stdRatio)
           : null,
       ror: config.ror != null
-          ? frb.ROROptions(radius: config.ror!.radius, minNeighbors: config.ror!.minNeighbors)
+          ? frb.ROROptions(
+              radius: config.ror!.radius,
+              minNeighbors: config.ror!.minNeighbors,
+            )
           : null,
       connect: config.connect != null && config.connect!.isEnabled
           ? frb.ConnectOptions(
@@ -433,7 +512,85 @@ class _PcdViewState extends State<PcdView> {
     }
   }
 
-  List<Model3D> _buildFigures(List<frb.Point3D> points, List<frb.LineSegmentData> lines, ViewerConfig config) {
+  _PackedRenderScene _buildPackedScene(
+    List<frb.Point3D> points,
+    List<frb.LineSegmentData> lines,
+    ViewerConfig config,
+  ) {
+    final pointVertices = <_PackedVertex>[];
+    final lineVertices = <_PackedVertex>[];
+    final bounds = _SceneBounds();
+
+    for (final point in points) {
+      bounds.expand(point.x, point.y, point.z);
+      pointVertices.add(
+        _PackedVertex(
+          x: point.x,
+          y: point.y,
+          z: point.z,
+          color: Color(point.color),
+        ),
+      );
+    }
+
+    if (config.grid.visible) {
+      final range = config.grid.range;
+      final step = config.grid.step;
+      for (double y = -range; y <= range; y += step) {
+        _appendLine(lineVertices, bounds, -range, y, 0, range, y, 0, config.grid.color);
+      }
+      for (double x = -range; x <= range; x += step) {
+        _appendLine(lineVertices, bounds, x, -range, 0, x, range, 0, config.grid.color);
+      }
+    }
+
+    if (config.showAxes) {
+      final axisRange = config.grid.range / 2;
+      _appendLine(lineVertices, bounds, 0, 0, 0, axisRange, 0, 0, Colors.red);
+      _appendLine(lineVertices, bounds, 0, 0, 0, 0, axisRange, 0, Colors.green);
+      _appendLine(lineVertices, bounds, 0, 0, 0, 0, 0, axisRange, Colors.blue);
+    }
+
+    for (final line in lines) {
+      _appendLine(
+        lineVertices,
+        bounds,
+        line.start.x,
+        line.start.y,
+        line.start.z,
+        line.end.x,
+        line.end.y,
+        line.end.z,
+        const Color(0xFF00FF00),
+      );
+    }
+
+    final normalizer = bounds.normalizer;
+    final packedPoints = Float32List(pointVertices.length * 7);
+    for (var i = 0; i < pointVertices.length; i++) {
+      final base = i * 7;
+      _writePackedVertex(packedPoints, base, pointVertices[i], normalizer);
+    }
+
+    final packedLines = Float32List(lineVertices.length * 7);
+    for (var i = 0; i < lineVertices.length; i++) {
+      final base = i * 7;
+      _writePackedVertex(packedLines, base, lineVertices[i], normalizer);
+    }
+
+    return _PackedRenderScene(
+      packedPoints: packedPoints,
+      packedLines: packedLines,
+      pointCount: pointVertices.length,
+      lineVertexCount: lineVertices.length,
+    );
+  }
+
+  List<Model3D> _buildFigures(
+    List<frb.Point3D> points,
+    List<frb.LineSegmentData> lines,
+    ViewerConfig config,
+  ) {
     final figures = <Model3D>[];
 
     if (config.grid.visible) {
@@ -491,14 +648,17 @@ class _PcdViewState extends State<PcdView> {
       );
     }
 
-    // Render line segments from connectivity
     if (lines.isNotEmpty) {
-      final lineFigures = lines.map((line) => Line3D(
-        Vector3(line.start.x, line.start.y, line.start.z),
-        Vector3(line.end.x, line.end.y, line.end.z),
-        width: 1,
-        color: const Color(0xFF00FF00), // Green lines
-      )).toList();
+      final lineFigures = lines
+          .map(
+            (line) => Line3D(
+              Vector3(line.start.x, line.start.y, line.start.z),
+              Vector3(line.end.x, line.end.y, line.end.z),
+              width: 1,
+              color: const Color(0xFF00FF00),
+            ),
+          )
+          .toList();
       figures.add(Group3D(lineFigures));
     }
 
@@ -544,7 +704,6 @@ class _PcdViewState extends State<PcdView> {
     switch (_phase) {
       case _PcdViewPhase.loading:
       case _PcdViewPhase.preparing:
-        // 加载中由外部状态栏显示，这里只返回空白背景
         return Container(color: widget.config.backgroundColor);
       case _PcdViewPhase.error:
         return _StatusView(
@@ -555,6 +714,25 @@ class _PcdViewState extends State<PcdView> {
           foregroundColor: Colors.redAccent,
         );
       case _PcdViewPhase.ready:
+        if (_usesAndroidNativeRenderer) {
+          if (_nativeRenderer == null || _nativeScene == null) {
+            return _StatusView(
+              backgroundColor: widget.config.backgroundColor,
+              title: '没有点云数据',
+              subtitle: _sourceLabel,
+              loading: false,
+            );
+          }
+          return _NativePcdTextureRenderer(
+            textureId: _nativeRenderer!.textureId,
+            backgroundColor: widget.config.backgroundColor,
+            rotationX: _nativeRotationX,
+            rotationY: _nativeRotationY,
+            zoom: _nativeZoom,
+            onViewportChanged: _handleNativeViewport,
+            onCameraChanged: _handleNativeCameraUpdate,
+          );
+        }
         if (_figures.isEmpty) {
           return _StatusView(
             backgroundColor: widget.config.backgroundColor,
@@ -576,6 +754,130 @@ class _PcdViewState extends State<PcdView> {
           loading: false,
         );
     }
+  }
+}
+
+class _NativePcdTextureRenderer extends StatefulWidget {
+  final int textureId;
+  final Color backgroundColor;
+  final double rotationX;
+  final double rotationY;
+  final double zoom;
+  final Future<void> Function(Size size) onViewportChanged;
+  final Future<void> Function({
+    required double rotationX,
+    required double rotationY,
+    required double zoom,
+  }) onCameraChanged;
+
+  const _NativePcdTextureRenderer({
+    required this.textureId,
+    required this.backgroundColor,
+    required this.rotationX,
+    required this.rotationY,
+    required this.zoom,
+    required this.onViewportChanged,
+    required this.onCameraChanged,
+  });
+
+  @override
+  State<_NativePcdTextureRenderer> createState() => _NativePcdTextureRendererState();
+}
+
+class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer> {
+  double _lastX = 0;
+  double _lastY = 0;
+  double _scaleBase = 1.0;
+  double _rotationX = 0;
+  double _rotationY = 0;
+  double _zoom = 1.0;
+  Size _lastSize = Size.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _rotationX = widget.rotationX;
+    _rotationY = widget.rotationY;
+    _zoom = widget.zoom;
+  }
+
+  @override
+  void didUpdateWidget(covariant _NativePcdTextureRenderer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.rotationX != widget.rotationX ||
+        oldWidget.rotationY != widget.rotationY ||
+        oldWidget.zoom != widget.zoom) {
+      _rotationX = widget.rotationX;
+      _rotationY = widget.rotationY;
+      _zoom = widget.zoom;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: widget.backgroundColor,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final size = Size(constraints.maxWidth, constraints.maxHeight);
+          if (size.width > 0 && size.height > 0 && size != _lastSize) {
+            _lastSize = size;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              unawaited(widget.onViewportChanged(size));
+            });
+          }
+
+          return Listener(
+            onPointerSignal: (pointerSignal) {
+              if (pointerSignal is PointerScrollEvent) {
+                final nextZoom = (_zoom - pointerSignal.scrollDelta.dy / 200)
+                    .clamp(0.1, 10.0)
+                    .toDouble();
+                _zoom = nextZoom;
+                unawaited(
+                  widget.onCameraChanged(
+                    rotationX: _rotationX,
+                    rotationY: _rotationY,
+                    zoom: _zoom,
+                  ),
+                );
+              }
+            },
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onScaleStart: (details) {
+                _scaleBase = _zoom;
+                _lastX = details.localFocalPoint.dx;
+                _lastY = details.localFocalPoint.dy;
+              },
+              onScaleUpdate: (details) {
+                final dx = details.localFocalPoint.dx - _lastX;
+                final dy = details.localFocalPoint.dy - _lastY;
+                _lastX = details.localFocalPoint.dx;
+                _lastY = details.localFocalPoint.dy;
+
+                if (details.pointerCount > 1) {
+                  _zoom = (_scaleBase * details.scale).clamp(0.1, 10.0).toDouble();
+                } else {
+                  _rotationX = _rotationX + dy / 16;
+                  _rotationY = _rotationY + dx / 16;
+                }
+
+                unawaited(
+                  widget.onCameraChanged(
+                    rotationX: _rotationX,
+                    rotationY: _rotationY,
+                    zoom: _zoom,
+                  ),
+                );
+              },
+              child: Texture(textureId: widget.textureId),
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 
@@ -606,7 +908,8 @@ class _PcdViewRendererState extends State<_PcdViewRenderer> {
       child: Listener(
         onPointerSignal: (pointerSignal) {
           if (pointerSignal is PointerScrollEvent) {
-            final viewScale = widget.controller.viewScale == 0 ? 1.0 : widget.controller.viewScale;
+            final viewScale =
+                widget.controller.viewScale == 0 ? 1.0 : widget.controller.viewScale;
             final scaledDy = pointerSignal.scrollDelta.dy / viewScale;
             widget.controller.update(
               userScale: widget.controller.userScale - scaledDy,
@@ -630,7 +933,8 @@ class _PcdViewRendererState extends State<_PcdViewRenderer> {
             widget.controller.update(
               userScale: _scaleBase * details.scale,
               rotationX: widget.controller.rotationX - dy / 2,
-              rotationY: ((widget.controller.rotationY - dx / 2 + 360) % 360).clamp(0, 360),
+              rotationY: ((widget.controller.rotationY - dx / 2 + 360) % 360)
+                  .clamp(0, 360),
             );
           },
           child: DiTreDi(
@@ -704,17 +1008,134 @@ class _StatusView extends StatelessWidget {
   }
 }
 
+class _PackedRenderScene {
+  final Float32List packedPoints;
+  final Float32List packedLines;
+  final int pointCount;
+  final int lineVertexCount;
+
+  const _PackedRenderScene({
+    required this.packedPoints,
+    required this.packedLines,
+    required this.pointCount,
+    required this.lineVertexCount,
+  });
+}
+
+class _PackedVertex {
+  final double x;
+  final double y;
+  final double z;
+  final Color color;
+
+  const _PackedVertex({
+    required this.x,
+    required this.y,
+    required this.z,
+    required this.color,
+  });
+}
+
+class _SceneBounds {
+  double minX = double.infinity;
+  double minY = double.infinity;
+  double minZ = double.infinity;
+  double maxX = double.negativeInfinity;
+  double maxY = double.negativeInfinity;
+  double maxZ = double.negativeInfinity;
+
+  void expand(double x, double y, double z) {
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+    if (z < minZ) minZ = z;
+    if (z > maxZ) maxZ = z;
+  }
+
+  _SceneNormalizer get normalizer {
+    if (!minX.isFinite) {
+      return const _SceneNormalizer(centerX: 0, centerY: 0, centerZ: 0, scale: 1);
+    }
+    final centerX = (minX + maxX) / 2;
+    final centerY = (minY + maxY) / 2;
+    final centerZ = (minZ + maxZ) / 2;
+    final extentX = maxX - minX;
+    final extentY = maxY - minY;
+    final extentZ = maxZ - minZ;
+    final maxExtent = [extentX, extentY, extentZ].reduce((a, b) => a > b ? a : b);
+    final scale = maxExtent <= 0 ? 1.0 : maxExtent / 2;
+    return _SceneNormalizer(
+      centerX: centerX,
+      centerY: centerY,
+      centerZ: centerZ,
+      scale: scale,
+    );
+  }
+}
+
+class _SceneNormalizer {
+  final double centerX;
+  final double centerY;
+  final double centerZ;
+  final double scale;
+
+  const _SceneNormalizer({
+    required this.centerX,
+    required this.centerY,
+    required this.centerZ,
+    required this.scale,
+  });
+}
+
+void _appendLine(
+  List<_PackedVertex> vertices,
+  _SceneBounds bounds,
+  double startX,
+  double startY,
+  double startZ,
+  double endX,
+  double endY,
+  double endZ,
+  Color color,
+) {
+  bounds.expand(startX, startY, startZ);
+  bounds.expand(endX, endY, endZ);
+  vertices.add(_PackedVertex(x: startX, y: startY, z: startZ, color: color));
+  vertices.add(_PackedVertex(x: endX, y: endY, z: endZ, color: color));
+}
+
+void _writePackedVertex(
+  Float32List target,
+  int offset,
+  _PackedVertex vertex,
+  _SceneNormalizer normalizer,
+) {
+  target[offset] = (vertex.x - normalizer.centerX) / normalizer.scale;
+  target[offset + 1] = (vertex.y - normalizer.centerY) / normalizer.scale;
+  target[offset + 2] = (vertex.z - normalizer.centerZ) / normalizer.scale;
+  target[offset + 3] = vertex.color.r;
+  target[offset + 4] = vertex.color.g;
+  target[offset + 5] = vertex.color.b;
+  target[offset + 6] = vertex.color.a * 0.8;
+}
+
 bool _didSourceChange(PcdView oldWidget, PcdView newWidget) {
-  return oldWidget.filePath != newWidget.filePath || !identical(oldWidget.points, newWidget.points);
+  return oldWidget.filePath != newWidget.filePath ||
+      !identical(oldWidget.points, newWidget.points);
 }
 
 bool _didSceneConfigChange(ViewerConfig oldConfig, ViewerConfig newConfig) {
   return oldConfig.pointSize != newConfig.pointSize ||
+      oldConfig.backgroundColor != newConfig.backgroundColor ||
       oldConfig.showAxes != newConfig.showAxes ||
       oldConfig.grid.visible != newConfig.grid.visible ||
       oldConfig.grid.range != newConfig.grid.range ||
       oldConfig.grid.step != newConfig.grid.step ||
-      oldConfig.grid.color != newConfig.grid.color;
+      oldConfig.grid.color != newConfig.grid.color ||
+      oldConfig.camera.zoom != newConfig.camera.zoom ||
+      oldConfig.camera.rotationX != newConfig.camera.rotationX ||
+      oldConfig.camera.rotationY != newConfig.camera.rotationY;
 }
 
 void _logViewer({

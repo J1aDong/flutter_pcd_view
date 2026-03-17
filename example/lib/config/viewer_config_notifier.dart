@@ -36,6 +36,8 @@ class ViewerConfigNotifier extends ChangeNotifier {
       'pp:${config.performance.dedupPrecision}',
       'pv:${config.performance.voxelSize}',
       'pm:${config.performance.maxPoints}',
+      'np:${config.performance.nativePointBudget}',
+      'ns:${config.performance.nativeRenderScale}',
       // Processing settings
       if (config.processing.sor != null) ...[
         'sk:${config.processing.sor!.k}',
@@ -102,6 +104,8 @@ class ViewerConfigNotifier extends ChangeNotifier {
         dedupPrecision: double.tryParse(map['pp'] ?? '0.001') ?? 0.001,
         voxelSize: double.tryParse(map['pv'] ?? '0.0') ?? 0.0,
         maxPoints: int.tryParse(map['pm'] ?? '0') ?? 0,
+        nativePointBudget: int.tryParse(map['np'] ?? '0') ?? 0,
+        nativeRenderScale: double.tryParse(map['ns'] ?? '1.0') ?? 1.0,
       ),
       processing: ProcessingConfig(
         sor: sor,
@@ -173,6 +177,22 @@ class ViewerConfigNotifier extends ChangeNotifier {
   void updateMaxPoints(int maxPoints) {
     _config = _config.copyWith(
       performance: _config.performance.copyWith(maxPoints: maxPoints),
+    );
+    saveSettings();
+    notifyListeners();
+  }
+
+  void updateNativePointBudget(int budget) {
+    _config = _config.copyWith(
+      performance: _config.performance.copyWith(nativePointBudget: budget),
+    );
+    saveSettings();
+    notifyListeners();
+  }
+
+  void updateNativeRenderScale(double scale) {
+    _config = _config.copyWith(
+      performance: _config.performance.copyWith(nativeRenderScale: scale),
     );
     saveSettings();
     notifyListeners();

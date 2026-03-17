@@ -3,6 +3,7 @@ mod api;
 mod parser;
 pub mod optimization;
 pub mod processing;
+pub mod renderer;
 
 pub use api::*;
 pub use parser::{parse_pcd_file, Point3D};

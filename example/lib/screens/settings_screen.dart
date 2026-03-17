@@ -35,6 +35,14 @@ class SettingsScreen extends HookWidget {
               value: config.performance.maxPoints,
               onChanged: configNotifier.updateMaxPoints,
             ),
+            _NativePointBudgetInput(
+              value: config.performance.nativePointBudget,
+              onChanged: configNotifier.updateNativePointBudget,
+            ),
+            _NativeRenderScaleSlider(
+              value: config.performance.nativeRenderScale,
+              onChanged: configNotifier.updateNativeRenderScale,
+            ),
             if (config.performance.isEnabled)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -242,7 +250,7 @@ class _MaxPointsInput extends HookWidget {
     final controller = useTextEditingController(text: value > 0 ? value.toString() : '');
 
     return ListTile(
-      title: const Text('最大点数'),
+      title: const Text('最大点数（解析优化）'),
       subtitle: const Text('超过此数量将均匀采样（0 = 无限制）'),
       trailing: SizedBox(
         width: 100,
@@ -261,6 +269,74 @@ class _MaxPointsInput extends HookWidget {
           },
         ),
       ),
+    );
+  }
+}
+
+class _NativePointBudgetInput extends HookWidget {
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  const _NativePointBudgetInput({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = useTextEditingController(text: value > 0 ? value.toString() : '');
+
+    return ListTile(
+      title: const Text('原生渲染点预算'),
+      subtitle: const Text('Android native renderer 实际绘制点数上限（0 = 不限制）'),
+      trailing: SizedBox(
+        width: 100,
+        child: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          textAlign: TextAlign.center,
+          decoration: const InputDecoration(
+            hintText: '不限制',
+            border: OutlineInputBorder(),
+            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          ),
+          onSubmitted: (text) {
+            final parsed = int.tryParse(text);
+            onChanged(parsed ?? 0);
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _NativeRenderScaleSlider extends StatelessWidget {
+  final double value;
+  final ValueChanged<double> onChanged;
+
+  const _NativeRenderScaleSlider({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('原生渲染比例'),
+            Text('${value.toStringAsFixed(2)}x'),
+          ],
+        ),
+        Slider(
+          value: value,
+          min: 0.5,
+          max: 2.0,
+          divisions: 15,
+          onChanged: onChanged,
+        ),
+        const Text(
+          '降低比例可减少 Android texture 渲染开销',
+          style: TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+      ],
     );
   }
 }
