@@ -49,7 +49,9 @@ public final class FlutterPcdViewPlugin: NSObject, FlutterPlugin {
                 renderer.updateCamera(
                     rotationX: Self.number(args["rotationX"])?.floatValue ?? -0.3,
                     rotationY: Self.number(args["rotationY"])?.floatValue ?? 0.5,
-                    zoom: Self.number(args["zoom"])?.floatValue ?? 1.0
+                    zoom: Self.number(args["zoom"])?.floatValue ?? 1.0,
+                    panX: Self.number(args["panX"])?.floatValue ?? 0.0,
+                    panY: Self.number(args["panY"])?.floatValue ?? 0.0
                 )
 
                 let textureId = renderer.textureId
@@ -141,7 +143,9 @@ private final class NativeRendererEntry: NSObject {
             renderer.updateCamera(
                 rotationX: (args["rotationX"] as? NSNumber)?.floatValue ?? -0.3,
                 rotationY: (args["rotationY"] as? NSNumber)?.floatValue ?? 0.5,
-                zoom: (args["zoom"] as? NSNumber)?.floatValue ?? 1.0
+                zoom: (args["zoom"] as? NSNumber)?.floatValue ?? 1.0,
+                panX: (args["panX"] as? NSNumber)?.floatValue ?? 0.0,
+                panY: (args["panY"] as? NSNumber)?.floatValue ?? 0.0
             )
             result(nil)
         case "loadPackedScene":
@@ -194,6 +198,8 @@ private final class IosPointCloudRenderer: NSObject, FlutterTexture {
     private var rotationX: Float = -0.3
     private var rotationY: Float = 0.5
     private var zoom: Float = 1.0
+    private var panX: Float = 0.0
+    private var panY: Float = 0.0
 
     private var pointBuffer: MTLBuffer?
     private var pointCount: Int = 0
@@ -305,11 +311,13 @@ private final class IosPointCloudRenderer: NSObject, FlutterTexture {
         }
     }
 
-    func updateCamera(rotationX: Float, rotationY: Float, zoom: Float) {
+    func updateCamera(rotationX: Float, rotationY: Float, zoom: Float, panX: Float, panY: Float) {
         metalQueue.async {
             self.rotationX = rotationX
             self.rotationY = rotationY
             self.zoom = max(zoom, 0.05)
+            self.panX = panX
+            self.panY = panY
             self.renderFrameIfPossible()
         }
     }
@@ -470,7 +478,7 @@ private final class IosPointCloudRenderer: NSObject, FlutterTexture {
             nearZ: 0.1,
             farZ: 100.0
         )
-        let view = simd_float4x4.translation(x: 0, y: 0, z: -3.0 / zoom)
+        let view = simd_float4x4.translation(x: panX, y: panY, z: -3.0 / zoom)
         let model = simd_float4x4.rotation(angle: rotationY, axis: SIMD3<Float>(0, 1, 0))
             * simd_float4x4.rotation(angle: rotationX, axis: SIMD3<Float>(1, 0, 0))
         return RendererUniforms(

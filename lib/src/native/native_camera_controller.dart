@@ -5,23 +5,31 @@ class NativeCameraController extends ChangeNotifier {
     double rotationX = -0.3,
     double rotationY = 0.5,
     double userScale = 1.0,
+    double panX = 0,
+    double panY = 0,
     double minUserScale = 0.1,
     double maxUserScale = 10.0,
   })  : _rotationX = rotationX,
         _rotationY = rotationY,
         _userScale = userScale,
+        _panX = panX,
+        _panY = panY,
         _minUserScale = minUserScale,
         _maxUserScale = maxUserScale;
 
   double _rotationX;
   double _rotationY;
   double _userScale;
+  double _panX;
+  double _panY;
   double _minUserScale;
   double _maxUserScale;
 
   double get rotationX => _rotationX;
   double get rotationY => _rotationY;
   double get userScale => _userScale;
+  double get panX => _panX;
+  double get panY => _panY;
   double get minUserScale => _minUserScale;
   double get maxUserScale => _maxUserScale;
 
@@ -29,6 +37,8 @@ class NativeCameraController extends ChangeNotifier {
     double? rotationX,
     double? rotationY,
     double? userScale,
+    double? panX,
+    double? panY,
     double? minUserScale,
     double? maxUserScale,
   }) {
@@ -40,6 +50,14 @@ class NativeCameraController extends ChangeNotifier {
     }
     if (rotationY != null && rotationY != _rotationY) {
       _rotationY = rotationY;
+      changed = true;
+    }
+    if (panX != null && panX != _panX) {
+      _panX = panX;
+      changed = true;
+    }
+    if (panY != null && panY != _panY) {
+      _panY = panY;
       changed = true;
     }
     if (minUserScale != null && minUserScale != _minUserScale) {

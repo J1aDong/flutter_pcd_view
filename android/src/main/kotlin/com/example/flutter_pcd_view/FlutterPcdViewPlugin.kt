@@ -62,6 +62,8 @@ class FlutterPcdViewPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                     rotationX = call.argument<Number>("rotationX")?.toFloat() ?: -0.3f,
                     rotationY = call.argument<Number>("rotationY")?.toFloat() ?: 0.5f,
                     zoom = call.argument<Number>("zoom")?.toFloat() ?: 1f,
+                    panX = call.argument<Number>("panX")?.toFloat() ?: 0f,
+                    panY = call.argument<Number>("panY")?.toFloat() ?: 0f,
                 )
                 result.success(producer.id())
             }
@@ -105,6 +107,8 @@ class FlutterPcdViewPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                         rotationX = call.argument<Number>("rotationX")?.toFloat() ?: -0.3f,
                         rotationY = call.argument<Number>("rotationY")?.toFloat() ?: 0.5f,
                         zoom = call.argument<Number>("zoom")?.toFloat() ?: 1f,
+                        panX = call.argument<Number>("panX")?.toFloat() ?: 0f,
+                        panY = call.argument<Number>("panY")?.toFloat() ?: 0f,
                     )
                     result.success(null)
                 }
@@ -162,6 +166,8 @@ private class AndroidPointCloudRenderer(
     private var rotationX: Float = -0.3f
     private var rotationY: Float = 0.5f
     private var zoom: Float = 1f
+    private var panX: Float = 0f
+    private var panY: Float = 0f
     private val projectionMatrix = FloatArray(16)
     private val viewMatrix = FloatArray(16)
     private val modelMatrix = FloatArray(16)
@@ -213,11 +219,13 @@ private class AndroidPointCloudRenderer(
         }
     }
 
-    fun updateCamera(rotationX: Float, rotationY: Float, zoom: Float) {
+    fun updateCamera(rotationX: Float, rotationY: Float, zoom: Float, panX: Float, panY: Float) {
         handler.post {
             this.rotationX = rotationX
             this.rotationY = rotationY
             this.zoom = max(zoom, 0.05f)
+            this.panX = panX
+            this.panY = panY
             drawFrame()
         }
     }
@@ -340,7 +348,7 @@ private class AndroidPointCloudRenderer(
         val aspect = scaledWidth.toFloat() / scaledHeight.coerceAtLeast(1).toFloat()
         Matrix.perspectiveM(projectionMatrix, 0, 45f, aspect, 0.1f, 100f)
         Matrix.setIdentityM(viewMatrix, 0)
-        Matrix.translateM(viewMatrix, 0, 0f, 0f, -3f / zoom)
+        Matrix.translateM(viewMatrix, 0, panX, panY, -3f / zoom)
         Matrix.setIdentityM(modelMatrix, 0)
         Matrix.rotateM(modelMatrix, 0, Math.toDegrees(rotationX.toDouble()).toFloat(), 1f, 0f, 0f)
         Matrix.rotateM(modelMatrix, 0, Math.toDegrees(rotationY.toDouble()).toFloat(), 0f, 1f, 0f)
