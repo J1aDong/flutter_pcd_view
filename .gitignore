@@ -111,6 +111,10 @@ coverage/
 rust/target/
 android/src/main/jniLibs/
 
+# Swift Package Manager
+.build/
+.swiftpm/
+
 # Symbols
 app.*.symbols
 
