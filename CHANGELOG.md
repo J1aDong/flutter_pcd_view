@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2
+
+- Add the iOS Swift Package Manager package manifest and source layout for Flutter's SwiftPM plugin integration.
+- Keep CocoaPods support by pointing the podspec at the shared Swift source location.
+
 ## 0.1.1
 
 - Remove the unused root `flutter_hooks` dependency; the example keeps its own direct dependency.
