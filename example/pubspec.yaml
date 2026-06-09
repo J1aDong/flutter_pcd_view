@@ -36,7 +36,8 @@ dependencies:
   file_picker: ^8.0.0
   shared_preferences: ^2.3.0
 
-  flutter_pcd_view: ^0.1.0
+  flutter_pcd_view:
+    path: ../
 
 dev_dependencies:
   flutter_test:

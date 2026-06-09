@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+- Remove the unused root `flutter_hooks` dependency; the example keeps its own direct dependency.
+- Keep pub.dev repository metadata available for package scoring.
+
 ## 0.1.0
 
 - Prepare the package for the first public pub.dev release.
