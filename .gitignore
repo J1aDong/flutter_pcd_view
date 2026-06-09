@@ -111,9 +111,6 @@ coverage/
 rust/target/
 android/src/main/jniLibs/
 
-# Local tooling
-.claude/
-
 # Symbols
 app.*.symbols
 

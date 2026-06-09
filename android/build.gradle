@@ -1,4 +1,4 @@
-group 'com.example.flutter_pcd_view'
+group 'io.github.j1adong.flutter_pcd_view'
 version '1.0-SNAPSHOT'
 
 import java.util.Properties
@@ -77,7 +77,7 @@ afterEvaluate {
 }
 
 android {
-    namespace 'com.example.flutter_pcd_view'
+    namespace 'io.github.j1adong.flutter_pcd_view'
     compileSdk 34
 
     compileOptions {

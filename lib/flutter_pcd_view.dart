@@ -1,3 +1,2 @@
-export 'src/ffi/api.dart';
-export 'src/ffi/parser.dart';
+export 'pcd_view.dart';
 export 'src/pcd_viewer.dart';

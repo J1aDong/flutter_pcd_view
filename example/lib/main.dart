@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_pcd_view/pcd_view.dart';
 
 import 'screens/tab_screen.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await PcdParser.initialize();
   runApp(const MyApp());
 }
 

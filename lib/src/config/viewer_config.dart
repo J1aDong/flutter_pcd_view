@@ -243,6 +243,12 @@ class CameraConfig {
   /// 初始缩放
   final double zoom;
 
+  /// 初始横向平移
+  final double panX;
+
+  /// 初始纵向平移
+  final double panY;
+
   /// 最小缩放
   final double minZoom;
 
@@ -253,6 +259,8 @@ class CameraConfig {
     this.rotationX = -0.3,
     this.rotationY = 0.5,
     this.zoom = 1.0,
+    this.panX = 0,
+    this.panY = 0,
     this.minZoom = 0.1,
     this.maxZoom = 10.0,
   });
@@ -261,6 +269,8 @@ class CameraConfig {
     double? rotationX,
     double? rotationY,
     double? zoom,
+    double? panX,
+    double? panY,
     double? minZoom,
     double? maxZoom,
   }) {
@@ -268,6 +278,8 @@ class CameraConfig {
       rotationX: rotationX ?? this.rotationX,
       rotationY: rotationY ?? this.rotationY,
       zoom: zoom ?? this.zoom,
+      panX: panX ?? this.panX,
+      panY: panY ?? this.panY,
       minZoom: minZoom ?? this.minZoom,
       maxZoom: maxZoom ?? this.maxZoom,
     );

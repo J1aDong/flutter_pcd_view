@@ -23,6 +23,8 @@ class NativeRendererBridge {
       'zoom': config.camera.zoom,
       'rotationX': config.camera.rotationX,
       'rotationY': config.camera.rotationY,
+      'panX': config.camera.panX,
+      'panY': config.camera.panY,
       'pointBudget': config.performance.nativePointBudget,
       'renderScale': config.performance.nativeRenderScale,
       'gridVisible': config.grid.visible,
@@ -57,6 +59,8 @@ class NativeRendererBridge {
       'zoom': config.camera.zoom,
       'rotationX': config.camera.rotationX,
       'rotationY': config.camera.rotationY,
+      'panX': config.camera.panX,
+      'panY': config.camera.panY,
       'pointBudget': config.performance.nativePointBudget,
       'renderScale': config.performance.nativeRenderScale,
       'gridVisible': config.grid.visible,
@@ -70,11 +74,15 @@ class NativeRendererBridge {
     required double rotationX,
     required double rotationY,
     required double zoom,
+    required double panX,
+    required double panY,
   }) {
     return _channel.invokeMethod<void>('updateCamera', {
       'rotationX': rotationX,
       'rotationY': rotationY,
       'zoom': zoom,
+      'panX': panX,
+      'panY': panY,
     });
   }
 

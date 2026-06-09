@@ -4,14 +4,14 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_pcd_view'
-  s.version          = '0.0.1'
+  s.version          = '0.1.0'
   s.summary          = 'A Flutter plugin for viewing PCD point cloud files.'
   s.description      = <<-DESC
-A Flutter plugin for viewing PCD point cloud files with Rust-powered parsing.
+A Flutter plugin for viewing PCD point cloud files with Rust-powered parsing and native Android/iOS rendering.
                        DESC
-  s.homepage         = 'http://example.com'
+  s.homepage         = 'https://github.com/J1aDong/flutter_pcd_view'
   s.license          = { :file => '../LICENSE' }
-  s.author           = { 'Your Company' => 'email@example.com' }
+  s.author           = { 'J1aDong' => 'https://github.com/J1aDong' }
   s.source           = { :path => '.' }
   s.source_files = 'Classes/**/*'
   s.dependency 'Flutter'

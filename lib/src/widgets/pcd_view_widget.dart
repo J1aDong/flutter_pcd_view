@@ -97,6 +97,8 @@ class _PcdViewState extends State<PcdView> {
   double _nativeRotationX = 0;
   double _nativeRotationY = 0;
   double _nativeZoom = 1.0;
+  double _nativePanX = 0;
+  double _nativePanY = 0;
 
   NativeCameraController get _controller =>
       widget.controller ?? _internalController;
@@ -112,6 +114,8 @@ class _PcdViewState extends State<PcdView> {
     _nativeRotationX = _controller.rotationX;
     _nativeRotationY = _controller.rotationY;
     _nativeZoom = _controller.userScale;
+    _nativePanX = _controller.panX;
+    _nativePanY = _controller.panY;
 
     if (_supportsNativeRenderer) {
       unawaited(_startSourceRequest());
@@ -230,6 +234,7 @@ class _PcdViewState extends State<PcdView> {
           message: 'using in-memory points',
         );
       } else {
+        await frb.PcdParser.initialize();
         _logViewer(
           event: 'parse_start',
           requestId: requestId,
@@ -414,6 +419,8 @@ class _PcdViewState extends State<PcdView> {
       rotationX: _nativeRotationX,
       rotationY: _nativeRotationY,
       zoom: _nativeZoom,
+      panX: _nativePanX,
+      panY: _nativePanY,
     );
     prepareWatch.stop();
 
@@ -476,16 +483,22 @@ class _PcdViewState extends State<PcdView> {
     required double rotationX,
     required double rotationY,
     required double zoom,
+    required double panX,
+    required double panY,
   }) async {
     _nativeRotationX = rotationX;
     _nativeRotationY = rotationY;
     _nativeZoom = zoom
         .clamp(widget.config.camera.minZoom, widget.config.camera.maxZoom)
         .toDouble();
+    _nativePanX = panX;
+    _nativePanY = panY;
     _controller.update(
       rotationX: _nativeRotationX,
       rotationY: _nativeRotationY,
       userScale: _nativeZoom,
+      panX: _nativePanX,
+      panY: _nativePanY,
     );
     final renderer = _nativeRenderer;
     if (renderer != null) {
@@ -493,6 +506,8 @@ class _PcdViewState extends State<PcdView> {
         rotationX: _nativeRotationX,
         rotationY: _nativeRotationY,
         zoom: _nativeZoom,
+        panX: _nativePanX,
+        panY: _nativePanY,
       );
     }
   }
@@ -628,6 +643,8 @@ class _PcdViewState extends State<PcdView> {
       rotationX: config.camera.rotationX,
       rotationY: config.camera.rotationY,
       userScale: config.camera.zoom,
+      panX: config.camera.panX,
+      panY: config.camera.panY,
       minUserScale: config.camera.minZoom,
       maxUserScale: config.camera.maxZoom,
     );
@@ -652,8 +669,19 @@ class _PcdViewState extends State<PcdView> {
   Widget build(BuildContext context) {
     switch (_phase) {
       case _PcdViewPhase.loading:
+        return _StatusView(
+          backgroundColor: widget.config.backgroundColor,
+          title: '正在加载点云',
+          subtitle: _sourceLabel,
+          loading: true,
+        );
       case _PcdViewPhase.preparing:
-        return Container(color: widget.config.backgroundColor);
+        return _StatusView(
+          backgroundColor: widget.config.backgroundColor,
+          title: '正在准备渲染',
+          subtitle: _sourceLabel,
+          loading: true,
+        );
       case _PcdViewPhase.error:
         return _StatusView(
           backgroundColor: widget.config.backgroundColor,
@@ -677,6 +705,8 @@ class _PcdViewState extends State<PcdView> {
           rotationX: _nativeRotationX,
           rotationY: _nativeRotationY,
           zoom: _nativeZoom,
+          panX: _nativePanX,
+          panY: _nativePanY,
           onViewportChanged: _handleNativeViewport,
           onCameraChanged: _handleNativeCameraUpdate,
         );
@@ -697,11 +727,15 @@ class _NativePcdTextureRenderer extends StatefulWidget {
   final double rotationX;
   final double rotationY;
   final double zoom;
+  final double panX;
+  final double panY;
   final Future<void> Function(Size size) onViewportChanged;
   final Future<void> Function({
     required double rotationX,
     required double rotationY,
     required double zoom,
+    required double panX,
+    required double panY,
   })
   onCameraChanged;
 
@@ -711,6 +745,8 @@ class _NativePcdTextureRenderer extends StatefulWidget {
     required this.rotationX,
     required this.rotationY,
     required this.zoom,
+    required this.panX,
+    required this.panY,
     required this.onViewportChanged,
     required this.onCameraChanged,
   });
@@ -727,6 +763,8 @@ class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer> {
   double _rotationX = 0;
   double _rotationY = 0;
   double _zoom = 1.0;
+  double _panX = 0;
+  double _panY = 0;
   Size _lastSize = Size.zero;
 
   @override
@@ -735,6 +773,8 @@ class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer> {
     _rotationX = widget.rotationX;
     _rotationY = widget.rotationY;
     _zoom = widget.zoom;
+    _panX = widget.panX;
+    _panY = widget.panY;
   }
 
   @override
@@ -742,10 +782,14 @@ class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.rotationX != widget.rotationX ||
         oldWidget.rotationY != widget.rotationY ||
-        oldWidget.zoom != widget.zoom) {
+        oldWidget.zoom != widget.zoom ||
+        oldWidget.panX != widget.panX ||
+        oldWidget.panY != widget.panY) {
       _rotationX = widget.rotationX;
       _rotationY = widget.rotationY;
       _zoom = widget.zoom;
+      _panX = widget.panX;
+      _panY = widget.panY;
     }
   }
 
@@ -783,6 +827,8 @@ class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer> {
                     rotationX: _rotationX,
                     rotationY: _rotationY,
                     zoom: _zoom,
+                    panX: _panX,
+                    panY: _panY,
                   ),
                 );
               }
@@ -804,6 +850,12 @@ class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer> {
                   _zoom = (_scaleBase * details.scale)
                       .clamp(0.1, 10.0)
                       .toDouble();
+                  final shortestSide = size.shortestSide <= 0
+                      ? 1.0
+                      : size.shortestSide;
+                  final panFactor = 2 / shortestSide / _zoom;
+                  _panX = _panX + dx * panFactor;
+                  _panY = _panY - dy * panFactor;
                 } else {
                   _rotationX = _rotationX + dy / 16;
                   _rotationY = _rotationY + dx / 16;
@@ -814,6 +866,8 @@ class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer> {
                     rotationX: _rotationX,
                     rotationY: _rotationY,
                     zoom: _zoom,
+                    panX: _panX,
+                    panY: _panY,
                   ),
                 );
               },

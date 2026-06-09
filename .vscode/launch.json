@@ -4,6 +4,7 @@
         {
             "name": "pcd_view",
             "request": "launch",
+            "flutterMode": "release",
             "type": "dart",
             "program": "example/lib/main.dart"
         }
