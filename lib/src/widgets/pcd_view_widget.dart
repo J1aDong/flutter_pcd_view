@@ -234,6 +234,7 @@ class _PcdViewState extends State<PcdView> {
           message: 'using in-memory points',
         );
       } else {
+        await frb.PcdParser.initialize();
         _logViewer(
           event: 'parse_start',
           requestId: requestId,
@@ -668,8 +669,19 @@ class _PcdViewState extends State<PcdView> {
   Widget build(BuildContext context) {
     switch (_phase) {
       case _PcdViewPhase.loading:
+        return _StatusView(
+          backgroundColor: widget.config.backgroundColor,
+          title: '正在加载点云',
+          subtitle: _sourceLabel,
+          loading: true,
+        );
       case _PcdViewPhase.preparing:
-        return Container(color: widget.config.backgroundColor);
+        return _StatusView(
+          backgroundColor: widget.config.backgroundColor,
+          title: '正在准备渲染',
+          subtitle: _sourceLabel,
+          loading: true,
+        );
       case _PcdViewPhase.error:
         return _StatusView(
           backgroundColor: widget.config.backgroundColor,

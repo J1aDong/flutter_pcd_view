@@ -1,4 +1,4 @@
-package com.example.flutter_pcd_view
+package io.github.j1adong.flutter_pcd_view
 
 import android.opengl.EGL14
 import android.opengl.EGLConfig

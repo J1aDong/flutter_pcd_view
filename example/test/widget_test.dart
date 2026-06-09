@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:example/main.dart';
 
@@ -10,15 +11,16 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMessageHandler('flutter/assets', (message) async {
-      final key = utf8.decode(message!.buffer.asUint8List());
-      if (key == 'AssetManifest.json') {
-        final bytes = Uint8List.fromList(utf8.encode('{}'));
-        return ByteData.view(bytes.buffer);
-      }
-      return null;
-    });
+          final key = utf8.decode(message!.buffer.asUint8List());
+          if (key == 'AssetManifest.json') {
+            final bytes = Uint8List.fromList(utf8.encode('{}'));
+            return ByteData.view(bytes.buffer);
+          }
+          return null;
+        });
   });
 
   tearDown(() {
@@ -28,7 +30,9 @@ void main() {
 
   testWidgets('demo app smoke test', (WidgetTester tester) async {
     await tester.pumpWidget(const MyApp());
-    await tester.pumpAndSettle();
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
 
     expect(find.text('PCD Viewer Demo'), findsOneWidget);
     expect(find.text('文件选择'), findsOneWidget);

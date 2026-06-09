@@ -1,13 +1,12 @@
 # Changelog
 
-## [0.0.1] - 2026-03-12
+## 0.1.0
 
-### Added
-- 初始版本发布
-- Rust FFI PCD 解析器（支持 ASCII 和 Binary 格式）
-- PcdView widget（基于 DiTreDi 3D 渲染）
-- ViewerConfig 配置系统
-- 支持 XYZ、XYZRGB、XYZHSV 字段类型
-- 交互式 3D 查看（旋转、缩放、平移）
-- 网格和坐标轴显示
-- Android 和 iOS 平台支持
+- Prepare the package for the first public pub.dev release.
+- Add Android OpenGL ES and iOS Metal native texture rendering.
+- Add `PcdView.fromFile` and `PcdView.fromPoints` as the primary viewer API.
+- Export the main viewer API from `package:flutter_pcd_view/flutter_pcd_view.dart`.
+- Automatically initialize the Rust parser when loading files through `PcdView`.
+- Add loading and preparing states for the default viewer.
+- Add configurable point size, colors, axes, grid, native render scale, point budget, deduplication, voxel sampling, outlier removal, and point connectivity options.
+- Update the example app with file selection, bundled sample files, renderer settings, and viewer controls.
