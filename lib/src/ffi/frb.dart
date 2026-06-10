@@ -4,19 +4,20 @@ import 'api.dart' as api;
 
 // Re-export generated types
 export 'parser.dart' show Point3D;
-export 'api.dart' show
-    parsePcd,
-    parsePcdWithOptimization,
-    parsePcdWithProcessing,
-    OptimizationOptions,
-    ParseResult,
-    ProcessingOptions,
-    ProcessingResult,
-    SOROptions,
-    ROROptions,
-    ConnectOptions,
-    ConnectModeType,
-    LineSegmentData;
+export 'api.dart'
+    show
+        parsePcd,
+        parsePcdWithOptimization,
+        parsePcdWithProcessing,
+        OptimizationOptions,
+        ParseResult,
+        ProcessingOptions,
+        ProcessingResult,
+        SOROptions,
+        ROROptions,
+        ConnectOptions,
+        ConnectModeType,
+        LineSegmentData;
 
 /// PCD parser interface
 class PcdParser {
@@ -43,10 +44,7 @@ class PcdParser {
   }
 
   /// Parse PCD file with optimization options
-  static Future<api.ParseResult> parsePcdWithOptimization(
-    String path,
-    api.OptimizationOptions options,
-  ) async {
+  static Future<api.ParseResult> parsePcdWithOptimization(String path, api.OptimizationOptions options) async {
     if (!_initialized) {
       await initialize();
     }

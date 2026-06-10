@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.5
+
+- Fix `flutter_rust_bridge` codegen/runtime version mismatch by upgrading codegen to 2.12.0.
+- Rebuild iOS and Android native libraries with `flutter_rust_bridge` 2.12.0.
+
 ## 0.1.2
 
 - Add the iOS Swift Package Manager package manifest and source layout for Flutter's SwiftPM plugin integration.
