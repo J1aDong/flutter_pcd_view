@@ -20,3 +20,11 @@
 - Add loading and preparing states for the default viewer.
 - Add configurable point size, colors, axes, grid, native render scale, point budget, deduplication, voxel sampling, outlier removal, and point connectivity options.
 - Update the example app with file selection, bundled sample files, renderer settings, and viewer controls.
+## 0.1.4
+
+- Upgrade `flutter_rust_bridge` to 2.12.0 to match the runtime version.
+
+## 0.1.3
+
+- Make Android Rust build tolerate missing `rust/Cargo.lock`.
+- Ensure `rust/Cargo.lock` is not excluded from packaged sources.

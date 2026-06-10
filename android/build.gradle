@@ -51,6 +51,7 @@ def resolveNdkPath = {
 
 tasks.register('buildRustAndroid', Exec) {
     workingDir '../rust'
+    final cargoLockFile = file('../rust/Cargo.lock')
 
     def buildMode = (project.findProperty('flutter.buildMode') ?: localProperties.getProperty('flutter.buildMode') ?: 'debug').toString()
     def cargoArgs = ['cargo', 'ndk']
@@ -66,7 +67,9 @@ tasks.register('buildRustAndroid', Exec) {
 
     inputs.files(fileTree('../rust/src'))
     inputs.file('../rust/Cargo.toml')
-    inputs.file('../rust/Cargo.lock')
+    if (cargoLockFile.exists()) {
+        inputs.file(cargoLockFile)
+    }
     outputs.dir('src/main/jniLibs')
 }
 

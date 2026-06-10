@@ -27,3 +27,4 @@ example/assets/pointcloud_map.pcd
 
 rust/target/
 android/src/main/jniLibs/
+!rust/Cargo.lock
