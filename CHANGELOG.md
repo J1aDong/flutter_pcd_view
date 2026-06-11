@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.6
+
+- Add height-based point coloring for source-less point clouds.
+- Add configurable gesture rotation sensitivity through `InteractionConfig`.
+- Align Android point-cloud rotation matrix with the lidar reference viewer.
+- Refresh the native texture viewport and camera after app resume to avoid a black preview.
+
 ## 0.1.5
 
 - Fix `flutter_rust_bridge` codegen/runtime version mismatch by upgrading codegen to 2.12.0.

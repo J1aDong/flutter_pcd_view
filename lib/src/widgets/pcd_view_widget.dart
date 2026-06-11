@@ -552,15 +552,20 @@ class _PcdViewState extends State<PcdView> {
     final pointVertices = <_PackedVertex>[];
     final lineVertices = <_PackedVertex>[];
     final bounds = _SceneBounds();
+    final heightRange = _HeightRange();
 
     for (final point in points) {
       bounds.expand(point.x, point.y, point.z);
+      heightRange.expand(point.z);
+    }
+
+    for (final point in points) {
       pointVertices.add(
         _PackedVertex(
           x: point.x,
           y: point.y,
           z: point.z,
-          color: point.hasColor ? Color(point.color) : config.pointColor,
+          color: _resolvePointColor(point, config, heightRange),
         ),
       );
     }
@@ -702,6 +707,7 @@ class _PcdViewState extends State<PcdView> {
         return _NativePcdTextureRenderer(
           textureId: _nativeRenderer!.textureId,
           backgroundColor: widget.config.backgroundColor,
+          interaction: widget.config.interaction,
           rotationX: _nativeRotationX,
           rotationY: _nativeRotationY,
           zoom: _nativeZoom,
@@ -724,6 +730,7 @@ class _PcdViewState extends State<PcdView> {
 class _NativePcdTextureRenderer extends StatefulWidget {
   final int textureId;
   final Color backgroundColor;
+  final InteractionConfig interaction;
   final double rotationX;
   final double rotationY;
   final double zoom;
@@ -742,6 +749,7 @@ class _NativePcdTextureRenderer extends StatefulWidget {
   const _NativePcdTextureRenderer({
     required this.textureId,
     required this.backgroundColor,
+    required this.interaction,
     required this.rotationX,
     required this.rotationY,
     required this.zoom,
@@ -756,10 +764,14 @@ class _NativePcdTextureRenderer extends StatefulWidget {
       _NativePcdTextureRendererState();
 }
 
-class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer> {
-  double _lastX = 0;
-  double _lastY = 0;
-  double _scaleBase = 1.0;
+class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer>
+    with WidgetsBindingObserver {
+  Offset _gestureStartFocalPoint = Offset.zero;
+  double _gestureStartRotationX = 0;
+  double _gestureStartRotationY = 0;
+  double _gestureStartZoom = 1.0;
+  double _gestureStartPanX = 0;
+  double _gestureStartPanY = 0;
   double _rotationX = 0;
   double _rotationY = 0;
   double _zoom = 1.0;
@@ -770,11 +782,30 @@ class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _rotationX = widget.rotationX;
     _rotationY = widget.rotationY;
     _zoom = widget.zoom;
     _panX = widget.panX;
     _panY = widget.panY;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _refreshNativeFrame();
+    });
   }
 
   @override
@@ -836,29 +867,40 @@ class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer> {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onScaleStart: (details) {
-                _scaleBase = _zoom;
-                _lastX = details.localFocalPoint.dx;
-                _lastY = details.localFocalPoint.dy;
+                _gestureStartFocalPoint = details.localFocalPoint;
+                _gestureStartRotationX = _rotationX;
+                _gestureStartRotationY = _rotationY;
+                _gestureStartZoom = _zoom;
+                _gestureStartPanX = _panX;
+                _gestureStartPanY = _panY;
               },
               onScaleUpdate: (details) {
-                final dx = details.localFocalPoint.dx - _lastX;
-                final dy = details.localFocalPoint.dy - _lastY;
-                _lastX = details.localFocalPoint.dx;
-                _lastY = details.localFocalPoint.dy;
+                final delta = details.localFocalPoint - _gestureStartFocalPoint;
+                final normalizedDx = size.width == 0
+                    ? 0.0
+                    : delta.dx / size.width;
+                final normalizedDy = size.height == 0
+                    ? 0.0
+                    : delta.dy / size.height;
 
                 if (details.pointerCount > 1) {
-                  _zoom = (_scaleBase * details.scale)
+                  _zoom = (_gestureStartZoom * details.scale)
                       .clamp(0.1, 10.0)
                       .toDouble();
-                  final shortestSide = size.shortestSide <= 0
-                      ? 1.0
-                      : size.shortestSide;
-                  final panFactor = 2 / shortestSide / _zoom;
-                  _panX = _panX + dx * panFactor;
-                  _panY = _panY - dy * panFactor;
+                  _panX = (_gestureStartPanX + normalizedDx * 2.2)
+                      .clamp(-2.0, 2.0)
+                      .toDouble();
+                  _panY = (_gestureStartPanY - normalizedDy * 2.2)
+                      .clamp(-2.0, 2.0)
+                      .toDouble();
                 } else {
-                  _rotationX = _rotationX + dy / 16;
-                  _rotationY = _rotationY + dx / 16;
+                  final sensitivity = widget.interaction.rotationSensitivity;
+                  _rotationY =
+                      _gestureStartRotationY + normalizedDx * sensitivity;
+                  _rotationX =
+                      (_gestureStartRotationX + normalizedDy * sensitivity)
+                          .clamp(-1.45, 1.45)
+                          .toDouble();
                 }
 
                 unawaited(
@@ -875,6 +917,21 @@ class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  void _refreshNativeFrame() {
+    if (_lastSize.width > 0 && _lastSize.height > 0) {
+      unawaited(widget.onViewportChanged(_lastSize));
+    }
+    unawaited(
+      widget.onCameraChanged(
+        rotationX: _rotationX,
+        rotationY: _rotationY,
+        zoom: _zoom,
+        panX: _panX,
+        panY: _panY,
       ),
     );
   }
@@ -1012,6 +1069,16 @@ class _SceneBounds {
   }
 }
 
+class _HeightRange {
+  double minZ = double.infinity;
+  double maxZ = double.negativeInfinity;
+
+  void expand(double z) {
+    if (z < minZ) minZ = z;
+    if (z > maxZ) maxZ = z;
+  }
+}
+
 class _SceneNormalizer {
   final double centerX;
   final double centerY;
@@ -1058,6 +1125,32 @@ void _writePackedVertex(
   target[offset + 6] = vertex.color.a * 0.8;
 }
 
+Color _resolvePointColor(
+  frb.Point3D point,
+  ViewerConfig config,
+  _HeightRange heightRange,
+) {
+  switch (config.pointColorStrategy) {
+    case PointColorStrategy.sourceOrDefault:
+      return point.hasColor ? Color(point.color) : config.pointColor;
+    case PointColorStrategy.sourceOrHeight:
+      if (point.hasColor) {
+        return Color(point.color);
+      }
+      return config.heightColorRamp.colorForHeight(
+        z: point.z,
+        minZ: heightRange.minZ,
+        maxZ: heightRange.maxZ,
+      );
+    case PointColorStrategy.height:
+      return config.heightColorRamp.colorForHeight(
+        z: point.z,
+        minZ: heightRange.minZ,
+        maxZ: heightRange.maxZ,
+      );
+  }
+}
+
 bool _didSourceChange(PcdView oldWidget, PcdView newWidget) {
   return oldWidget.filePath != newWidget.filePath ||
       !identical(oldWidget.points, newWidget.points);
@@ -1067,6 +1160,8 @@ bool _didSceneConfigChange(ViewerConfig oldConfig, ViewerConfig newConfig) {
   return oldConfig.pointSize != newConfig.pointSize ||
       oldConfig.backgroundColor != newConfig.backgroundColor ||
       oldConfig.pointColor != newConfig.pointColor ||
+      oldConfig.pointColorStrategy != newConfig.pointColorStrategy ||
+      oldConfig.heightColorRamp != newConfig.heightColorRamp ||
       oldConfig.showAxes != newConfig.showAxes ||
       oldConfig.grid.visible != newConfig.grid.visible ||
       oldConfig.grid.range != newConfig.grid.range ||

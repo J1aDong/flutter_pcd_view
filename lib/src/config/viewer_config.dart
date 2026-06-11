@@ -232,6 +232,85 @@ class ProcessingConfig {
   int get hashCode => Object.hash(sor, ror, connect);
 }
 
+enum PointColorStrategy {
+  /// Use PCD color when present, otherwise [ViewerConfig.pointColor].
+  sourceOrDefault,
+
+  /// Use PCD color when present, otherwise color by relative height.
+  sourceOrHeight,
+
+  /// Always color by relative height.
+  height,
+}
+
+class HeightColorRamp {
+  final Color low;
+  final Color middle;
+  final Color high;
+
+  const HeightColorRamp({
+    this.low = const Color(0xFF8DFF6A),
+    this.middle = const Color(0xFF0B2FFF),
+    this.high = const Color(0xFFFF5E78),
+  });
+
+  Color colorForFraction(double fraction) {
+    final value = (fraction.isFinite ? fraction.clamp(0.0, 1.0) : 0.5)
+        .toDouble();
+    if (value <= 0.5) {
+      return Color.lerp(low, middle, value * 2) ?? middle;
+    }
+    return Color.lerp(middle, high, (value - 0.5) * 2) ?? middle;
+  }
+
+  Color colorForHeight({
+    required double z,
+    required double minZ,
+    required double maxZ,
+  }) {
+    final range = maxZ - minZ;
+    if (!z.isFinite || !minZ.isFinite || !maxZ.isFinite || range <= 0) {
+      return middle;
+    }
+    return colorForFraction((z - minZ) / range);
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HeightColorRamp &&
+          runtimeType == other.runtimeType &&
+          low == other.low &&
+          middle == other.middle &&
+          high == other.high;
+
+  @override
+  int get hashCode => Object.hash(low, middle, high);
+}
+
+class InteractionConfig {
+  /// Radians applied when a single-finger drag spans the viewport.
+  final double rotationSensitivity;
+
+  const InteractionConfig({this.rotationSensitivity = 2.0});
+
+  InteractionConfig copyWith({double? rotationSensitivity}) {
+    return InteractionConfig(
+      rotationSensitivity: rotationSensitivity ?? this.rotationSensitivity,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is InteractionConfig &&
+          runtimeType == other.runtimeType &&
+          rotationSensitivity == other.rotationSensitivity;
+
+  @override
+  int get hashCode => rotationSensitivity.hashCode;
+}
+
 /// 相机初始配置
 class CameraConfig {
   /// 初始旋转 X 角度（弧度）
@@ -284,6 +363,23 @@ class CameraConfig {
       maxZoom: maxZoom ?? this.maxZoom,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CameraConfig &&
+          runtimeType == other.runtimeType &&
+          rotationX == other.rotationX &&
+          rotationY == other.rotationY &&
+          zoom == other.zoom &&
+          panX == other.panX &&
+          panY == other.panY &&
+          minZoom == other.minZoom &&
+          maxZoom == other.maxZoom;
+
+  @override
+  int get hashCode =>
+      Object.hash(rotationX, rotationY, zoom, panX, panY, minZoom, maxZoom);
 }
 
 /// 网格配置
@@ -320,6 +416,19 @@ class GridConfig {
       color: color ?? this.color,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GridConfig &&
+          runtimeType == other.runtimeType &&
+          visible == other.visible &&
+          range == other.range &&
+          step == other.step &&
+          color == other.color;
+
+  @override
+  int get hashCode => Object.hash(visible, range, step, color);
 }
 
 /// PcdView 查看器配置
@@ -335,6 +444,12 @@ class ViewerConfig {
   /// 点颜色（用于无自定义颜色点的默认显示）
   final Color pointColor;
 
+  /// 点颜色策略
+  final PointColorStrategy pointColorStrategy;
+
+  /// 高度配色
+  final HeightColorRamp heightColorRamp;
+
   /// 是否显示坐标轴
   final bool showAxes;
 
@@ -343,6 +458,9 @@ class ViewerConfig {
 
   /// 相机配置
   final CameraConfig camera;
+
+  /// 交互配置
+  final InteractionConfig interaction;
 
   /// 性能优化配置
   final PerformanceConfig performance;
@@ -354,9 +472,12 @@ class ViewerConfig {
     this.pointSize = 2.0,
     this.backgroundColor = Colors.black,
     this.pointColor = Colors.white,
+    this.pointColorStrategy = PointColorStrategy.sourceOrDefault,
+    this.heightColorRamp = const HeightColorRamp(),
     this.showAxes = true,
     this.grid = const GridConfig(),
     this.camera = const CameraConfig(),
+    this.interaction = const InteractionConfig(),
     this.performance = const PerformanceConfig(),
     this.processing = const ProcessingConfig(),
   });
@@ -365,9 +486,12 @@ class ViewerConfig {
     double? pointSize,
     Color? backgroundColor,
     Color? pointColor,
+    PointColorStrategy? pointColorStrategy,
+    HeightColorRamp? heightColorRamp,
     bool? showAxes,
     GridConfig? grid,
     CameraConfig? camera,
+    InteractionConfig? interaction,
     PerformanceConfig? performance,
     ProcessingConfig? processing,
   }) {
@@ -375,9 +499,12 @@ class ViewerConfig {
       pointSize: pointSize ?? this.pointSize,
       backgroundColor: backgroundColor ?? this.backgroundColor,
       pointColor: pointColor ?? this.pointColor,
+      pointColorStrategy: pointColorStrategy ?? this.pointColorStrategy,
+      heightColorRamp: heightColorRamp ?? this.heightColorRamp,
       showAxes: showAxes ?? this.showAxes,
       grid: grid ?? this.grid,
       camera: camera ?? this.camera,
+      interaction: interaction ?? this.interaction,
       performance: performance ?? this.performance,
       processing: processing ?? this.processing,
     );
@@ -391,7 +518,12 @@ class ViewerConfig {
           pointSize == other.pointSize &&
           backgroundColor == other.backgroundColor &&
           pointColor == other.pointColor &&
+          pointColorStrategy == other.pointColorStrategy &&
+          heightColorRamp == other.heightColorRamp &&
           showAxes == other.showAxes &&
+          grid == other.grid &&
+          camera == other.camera &&
+          interaction == other.interaction &&
           performance == other.performance &&
           processing == other.processing;
 
@@ -400,7 +532,12 @@ class ViewerConfig {
     pointSize,
     backgroundColor,
     pointColor,
+    pointColorStrategy,
+    heightColorRamp,
     showAxes,
+    grid,
+    camera,
+    interaction,
     performance,
     processing,
   );

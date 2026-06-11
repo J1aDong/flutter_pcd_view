@@ -20,8 +20,10 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 class FlutterPcdViewPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     private lateinit var textureRegistry: TextureRegistry
@@ -185,6 +187,7 @@ private class AndroidPointCloudRenderer(
     override fun onSurfaceAvailable() {
         handler.post {
             Log.d("FlutterPcdView", "onSurfaceAvailable")
+            applyBufferSize()
             recreateSurface()
             drawFrame()
         }
@@ -349,9 +352,7 @@ private class AndroidPointCloudRenderer(
         Matrix.perspectiveM(projectionMatrix, 0, 45f, aspect, 0.1f, 100f)
         Matrix.setIdentityM(viewMatrix, 0)
         Matrix.translateM(viewMatrix, 0, panX, panY, -3f / zoom)
-        Matrix.setIdentityM(modelMatrix, 0)
-        Matrix.rotateM(modelMatrix, 0, Math.toDegrees(rotationX.toDouble()).toFloat(), 1f, 0f, 0f)
-        Matrix.rotateM(modelMatrix, 0, Math.toDegrees(rotationY.toDouble()).toFloat(), 0f, 1f, 0f)
+        PointCloudCamera.setModelMatrix(modelMatrix, rotationX, rotationY)
         Matrix.multiplyMM(pvMatrix, 0, projectionMatrix, 0, viewMatrix, 0)
         Matrix.multiplyMM(mvpMatrix, 0, pvMatrix, 0, modelMatrix, 0)
 
@@ -428,7 +429,6 @@ private class AndroidPointCloudRenderer(
             EGL14.eglDestroySurface(eglDisplay, eglSurface)
             eglSurface = EGL14.EGL_NO_SURFACE
         }
-        surface?.release()
         surface = null
     }
 
@@ -480,6 +480,40 @@ private class AndroidPointCloudRenderer(
               gl_FragColor = vColor;
             }
         """
+    }
+}
+
+private object PointCloudCamera {
+    fun setModelMatrix(
+        matrix: FloatArray,
+        rotationX: Float,
+        rotationY: Float,
+    ) {
+        val pitchSin = sin(rotationX)
+        val pitchCos = cos(rotationX)
+        val yawSin = sin(rotationY)
+        val yawCos = cos(rotationY)
+
+        setIdentity(matrix)
+
+        matrix[0] = yawCos
+        matrix[2] = -yawSin
+        matrix[4] = yawSin * pitchSin
+        matrix[5] = pitchCos
+        matrix[6] = yawCos * pitchSin
+        matrix[8] = yawSin * pitchCos
+        matrix[9] = -pitchSin
+        matrix[10] = yawCos * pitchCos
+    }
+
+    private fun setIdentity(matrix: FloatArray) {
+        for (index in 0 until 16) {
+            matrix[index] = 0f
+        }
+        matrix[0] = 1f
+        matrix[5] = 1f
+        matrix[10] = 1f
+        matrix[15] = 1f
     }
 }
 

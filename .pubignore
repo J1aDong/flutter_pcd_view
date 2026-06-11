@@ -11,9 +11,11 @@ coverage/
 doc/api/
 *.iml
 .DS_Store
+/Cargo.lock
 
 example/.dart_tool/
 example/build/
+example/**/GeneratedPluginRegistrant.*
 example/**/generated_plugin_registrant.*
 example/**/generated_plugins.cmake
 example/android/.gradle/
@@ -26,5 +28,9 @@ example/example/
 example/assets/pointcloud_map.pcd
 
 rust/target/
+android/app/
+android/local.properties
 android/src/main/jniLibs/
+ios/Flutter/
+ios/Runner/
 !rust/Cargo.lock

@@ -18,7 +18,7 @@ Current rendering support is Android and iOS only. Other Flutter platforms retur
 
 ```yaml
 dependencies:
-  flutter_pcd_view: ^0.1.2
+  flutter_pcd_view: ^0.1.6
 ```
 
 ## Quick Start
