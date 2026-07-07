@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.7
+
+- Fix iOS `pod install` failure: remove `s.vendored_libraries` from the podspec to avoid `libflutter_pcd_view.a` being linked twice (once via `vendored_libraries`, once via `OTHER_LDFLAGS -force_load`), which triggered `verify_no_duplicate_framework_and_library_names` ("'Pods-Runner' target has libraries with conflicting names"). The Rust static library is still linked via `-force_load`.
+
 ## 0.1.6
 
 - Add height-based point coloring for source-less point clouds.

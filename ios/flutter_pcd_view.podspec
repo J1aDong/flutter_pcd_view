@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_pcd_view'
-  s.version          = '0.1.6'
+  s.version          = '0.1.7'
   s.summary          = 'A Flutter plugin for viewing PCD point cloud files.'
   s.description      = <<-DESC
 A Flutter plugin for viewing PCD point cloud files with Rust-powered parsing and native Android/iOS rendering.
@@ -32,6 +32,9 @@ A Flutter plugin for viewing PCD point cloud files with Rust-powered parsing and
   }
   s.swift_version = '5.0'
 
-  # Rust static library
-  s.vendored_libraries = 'libflutter_pcd_view.a'
+  # Rust static library 由 OTHER_LDFLAGS -force_load 链接。
+  # 不要再声明 s.vendored_libraries，否则 libflutter_pcd_view.a 会被
+  # CocoaPods 自动加入 target build files，与 -force_load 重复，触发
+  # verify_no_duplicate_framework_and_library_names 校验失败
+  # （'Pods-Runner' target has libraries with conflicting names）。
 end
