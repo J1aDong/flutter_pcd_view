@@ -5,6 +5,44 @@ SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
 PROJECT_ROOT="$(CDPATH='' cd -- "$SCRIPT_DIR/.." && pwd)"
 RUST_DIR="$PROJECT_ROOT/rust"
 OUTPUT_LIB="$SCRIPT_DIR/libflutter_pcd_view.a"
+DEVICE_LIB="$SCRIPT_DIR/libflutter_pcd_view_device.a"
+SIM_LIB="$SCRIPT_DIR/libflutter_pcd_view_sim.a"
+
+# 优先使用包内预编译的 Rust 静态库，调用方无需安装 Rust。
+# 仅当预编译产物缺失（即在仓库内开发）时才回退到 cargo 构建。
+use_prebuilt() {
+  if [ -z "$PLATFORM_NAME" ]; then
+    # prepare_command 等无平台上下文场景：默认输出模拟器库
+    if [ -f "$SIM_LIB" ]; then
+      cp "$SIM_LIB" "$OUTPUT_LIB"
+      echo "[flutter_pcd_view] Using prebuilt simulator library: $SIM_LIB"
+      return 0
+    fi
+    return 1
+  fi
+
+  if [ "$PLATFORM_NAME" = "iphoneos" ]; then
+    if [ -f "$DEVICE_LIB" ]; then
+      cp "$DEVICE_LIB" "$OUTPUT_LIB"
+      echo "[flutter_pcd_view] Using prebuilt device library: $DEVICE_LIB"
+      return 0
+    fi
+  else
+    if [ -f "$SIM_LIB" ]; then
+      cp "$SIM_LIB" "$OUTPUT_LIB"
+      echo "[flutter_pcd_view] Using prebuilt simulator library: $SIM_LIB"
+      return 0
+    fi
+  fi
+  return 1
+}
+
+if use_prebuilt; then
+  lipo -info "$OUTPUT_LIB" || true
+  exit 0
+fi
+
+echo "[flutter_pcd_view] Prebuilt library not found, falling back to cargo build (requires Rust toolchain)"
 
 ensure_target() {
   TARGET="$1"

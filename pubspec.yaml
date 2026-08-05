@@ -1,6 +1,6 @@
 name: flutter_pcd_view
 description: Flutter plugin for viewing PCD point clouds with Rust parsing and native Android/iOS rendering.
-version: 0.1.7
+version: 0.1.8
 homepage: https://github.com/J1aDong/flutter_pcd_view
 repository: https://github.com/J1aDong/flutter_pcd_view
 issue_tracker: https://github.com/J1aDong/flutter_pcd_view/issues

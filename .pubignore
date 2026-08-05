@@ -30,7 +30,6 @@ example/assets/pointcloud_map.pcd
 rust/target/
 android/app/
 android/local.properties
-android/src/main/jniLibs/
 ios/Flutter/
 ios/Runner/
 !rust/Cargo.lock

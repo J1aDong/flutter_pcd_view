@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_pcd_view'
-  s.version          = '0.1.7'
+  s.version          = '0.1.8'
   s.summary          = 'A Flutter plugin for viewing PCD point cloud files.'
   s.description      = <<-DESC
 A Flutter plugin for viewing PCD point cloud files with Rust-powered parsing and native Android/iOS rendering.

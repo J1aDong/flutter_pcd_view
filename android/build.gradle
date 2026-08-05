@@ -33,49 +33,57 @@ if (exampleLocalPropertiesFile.exists()) {
     exampleLocalPropertiesFile.withInputStream { localProperties.load(it) }
 }
 
-def resolveNdkPath = {
-    def envPath = System.getenv('ANDROID_NDK_HOME') ?: System.getenv('NDK_HOME')
-    if (envPath) return envPath
-
-    def sdkDir = localProperties.getProperty('sdk.dir')
-    if (sdkDir) {
-        def versioned = new File(sdkDir, 'ndk/27.0.12077973')
-        if (versioned.exists()) return versioned.absolutePath
-    }
-
-    def fallback = file('/Users/mr.j/myRoom/opt/android_sdk/ndk/android-ndk-r23c')
-    if (fallback.exists()) return fallback.absolutePath
-
-    throw new GradleException('Android NDK not found. Set ANDROID_NDK_HOME or NDK_HOME before building flutter_pcd_view.')
+// 包内已附带预编译的 Rust .so（android/src/main/jniLibs）。调用方无需安装 Rust。
+// 仅当预编译产物缺失（即在仓库内开发）时才回退到 cargo ndk 构建。
+def hasPrebuiltJniLibs = abiTargets.every { abi ->
+    file("src/main/jniLibs/${abi}/libflutter_pcd_view.so").exists()
 }
 
-tasks.register('buildRustAndroid', Exec) {
-    workingDir '../rust'
-    final cargoLockFile = file('../rust/Cargo.lock')
+if (!hasPrebuiltJniLibs) {
+    def resolveNdkPath = {
+        def envPath = System.getenv('ANDROID_NDK_HOME') ?: System.getenv('NDK_HOME')
+        if (envPath) return envPath
 
-    def buildMode = (project.findProperty('flutter.buildMode') ?: localProperties.getProperty('flutter.buildMode') ?: 'debug').toString()
-    def cargoArgs = ['cargo', 'ndk']
-    abiTargets.each { cargoArgs += ['-t', it] }
-    cargoArgs += ['-o', '../android/src/main/jniLibs', 'build']
-    if (buildMode == 'release' || buildMode == 'profile') {
-        cargoArgs += ['--release']
+        def sdkDir = localProperties.getProperty('sdk.dir')
+        if (sdkDir) {
+            def ndkDir = new File(sdkDir, 'ndk')
+            if (ndkDir.isDirectory()) {
+                def newest = ndkDir.listFiles()?.sort { it.name }?.last()
+                if (newest != null) return newest.absolutePath
+            }
+        }
+
+        throw new GradleException('Android NDK not found. Set ANDROID_NDK_HOME or NDK_HOME before building flutter_pcd_view.')
     }
 
-    commandLine cargoArgs
-    environment 'ANDROID_NDK_HOME', resolveNdkPath()
-    environment 'NDK_HOME', resolveNdkPath()
+    tasks.register('buildRustAndroid', Exec) {
+        workingDir '../rust'
+        final cargoLockFile = file('../rust/Cargo.lock')
 
-    inputs.files(fileTree('../rust/src'))
-    inputs.file('../rust/Cargo.toml')
-    if (cargoLockFile.exists()) {
-        inputs.file(cargoLockFile)
+        def buildMode = (project.findProperty('flutter.buildMode') ?: localProperties.getProperty('flutter.buildMode') ?: 'debug').toString()
+        def cargoArgs = ['cargo', 'ndk']
+        abiTargets.each { cargoArgs += ['-t', it] }
+        cargoArgs += ['-o', '../android/src/main/jniLibs', 'build']
+        if (buildMode == 'release' || buildMode == 'profile') {
+            cargoArgs += ['--release']
+        }
+
+        commandLine cargoArgs
+        environment 'ANDROID_NDK_HOME', resolveNdkPath()
+        environment 'NDK_HOME', resolveNdkPath()
+
+        inputs.files(fileTree('../rust/src'))
+        inputs.file('../rust/Cargo.toml')
+        if (cargoLockFile.exists()) {
+            inputs.file(cargoLockFile)
+        }
+        outputs.dir('src/main/jniLibs')
     }
-    outputs.dir('src/main/jniLibs')
-}
 
-afterEvaluate {
-    tasks.matching { it.name == 'preBuild' }.configureEach {
-        dependsOn tasks.named('buildRustAndroid')
+    afterEvaluate {
+        tasks.matching { it.name == 'preBuild' }.configureEach {
+            dependsOn tasks.named('buildRustAndroid')
+        }
     }
 }
 
