@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.9
+
+- Upgrade `flutter_rust_bridge` to 2.13.0 (codegen and runtime) to resolve the codegen/runtime version mismatch error with apps using flutter_rust_bridge 2.13.x.
+
 ## 0.1.8
 
 - Ship prebuilt native libraries so consumers no longer need a Rust toolchain: Android bundles `jniLibs` `.so` for all four ABIs, and iOS bundles prebuilt device/simulator static libraries (the build scripts fall back to `cargo` only when the prebuilt artifacts are missing).
