@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -81,10 +80,10 @@ class FileSelectScreen extends HookWidget {
   ) async {
     if (fileList.value.isNotEmpty) return;
 
-    final manifestContent = await rootBundle.loadString('AssetManifest.json');
-    final manifestMap = json.decode(manifestContent) as Map<String, dynamic>;
+    final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
 
-    final assetKeys = manifestMap.keys
+    final assetKeys = manifest
+        .listAssets()
         .where((key) => key.startsWith('assets/'))
         .where((key) => key.toLowerCase().endsWith('.pcd'))
         .toList()

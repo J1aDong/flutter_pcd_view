@@ -6,7 +6,8 @@
             "request": "launch",
             "flutterMode": "release",
             "type": "dart",
-            "program": "example/lib/main.dart"
+            "cwd": "${workspaceFolder}/example",
+            "program": "lib/main.dart"
         }
     ]
 }

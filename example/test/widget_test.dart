@@ -1,7 +1,3 @@
-import 'dart:convert';
-import 'dart:typed_data';
-
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -12,20 +8,6 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMessageHandler('flutter/assets', (message) async {
-          final key = utf8.decode(message!.buffer.asUint8List());
-          if (key == 'AssetManifest.json') {
-            final bytes = Uint8List.fromList(utf8.encode('{}'));
-            return ByteData.view(bytes.buffer);
-          }
-          return null;
-        });
-  });
-
-  tearDown(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMessageHandler('flutter/assets', null);
   });
 
   testWidgets('demo app smoke test', (WidgetTester tester) async {

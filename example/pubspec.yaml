@@ -36,7 +36,8 @@ dependencies:
   file_picker: ^8.0.0
   shared_preferences: ^2.3.0
 
-  flutter_pcd_view: ^0.1.2
+  flutter_pcd_view:
+    path: ../
 
 dev_dependencies:
   flutter_test:
@@ -65,6 +66,7 @@ flutter:
     - assets/sample_xyz.pcd
     - assets/sample_rgb.pcd
     - assets/sample_binary.pcd
+    - assets/pointcloud_map.pcd
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
