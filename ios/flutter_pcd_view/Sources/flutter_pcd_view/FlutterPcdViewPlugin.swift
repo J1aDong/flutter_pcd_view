@@ -49,6 +49,7 @@ public final class FlutterPcdViewPlugin: NSObject, FlutterPlugin {
                 renderer.updateCamera(
                     rotationX: Self.number(args["rotationX"])?.floatValue ?? -0.3,
                     rotationY: Self.number(args["rotationY"])?.floatValue ?? 0.5,
+                    orientation: Self.orientation(args["orientation"]),
                     zoom: Self.number(args["zoom"])?.floatValue ?? 1.0,
                     panX: Self.number(args["panX"])?.floatValue ?? 0.0,
                     panY: Self.number(args["panY"])?.floatValue ?? 0.0
@@ -81,6 +82,16 @@ public final class FlutterPcdViewPlugin: NSObject, FlutterPlugin {
 
     private static func number(_ value: Any?) -> NSNumber? {
         value as? NSNumber
+    }
+
+    private static func orientation(_ value: Any?) -> SIMD4<Float>? {
+        guard let values = value as? [NSNumber], values.count == 4 else { return nil }
+        return SIMD4<Float>(
+            values[0].floatValue,
+            values[1].floatValue,
+            values[2].floatValue,
+            values[3].floatValue
+        )
     }
 }
 
@@ -143,6 +154,7 @@ private final class NativeRendererEntry: NSObject {
             renderer.updateCamera(
                 rotationX: (args["rotationX"] as? NSNumber)?.floatValue ?? -0.3,
                 rotationY: (args["rotationY"] as? NSNumber)?.floatValue ?? 0.5,
+                orientation: Self.orientation(args["orientation"]),
                 zoom: (args["zoom"] as? NSNumber)?.floatValue ?? 1.0,
                 panX: (args["panX"] as? NSNumber)?.floatValue ?? 0.0,
                 panY: (args["panY"] as? NSNumber)?.floatValue ?? 0.0
@@ -197,6 +209,7 @@ private final class IosPointCloudRenderer: NSObject, FlutterTexture {
     private var backgroundColor: UInt32 = 0xFF000000
     private var rotationX: Float = -0.3
     private var rotationY: Float = 0.5
+    private var orientation: SIMD4<Float>?
     private var zoom: Float = 1.0
     private var panX: Float = 0.0
     private var panY: Float = 0.0
@@ -311,10 +324,18 @@ private final class IosPointCloudRenderer: NSObject, FlutterTexture {
         }
     }
 
-    func updateCamera(rotationX: Float, rotationY: Float, zoom: Float, panX: Float, panY: Float) {
+    func updateCamera(
+        rotationX: Float,
+        rotationY: Float,
+        orientation: SIMD4<Float>? = nil,
+        zoom: Float,
+        panX: Float,
+        panY: Float
+    ) {
         metalQueue.async {
             self.rotationX = rotationX
             self.rotationY = rotationY
+            self.orientation = orientation
             self.zoom = max(zoom, 0.05)
             self.panX = panX
             self.panY = panY
@@ -479,8 +500,14 @@ private final class IosPointCloudRenderer: NSObject, FlutterTexture {
             farZ: 100.0
         )
         let view = simd_float4x4.translation(x: panX, y: panY, z: -3.0 / zoom)
-        let model = simd_float4x4.rotation(angle: rotationY, axis: SIMD3<Float>(0, 1, 0))
-            * simd_float4x4.rotation(angle: rotationX, axis: SIMD3<Float>(1, 0, 0))
+        let model: simd_float4x4
+        if let orientation {
+            let quaternion = simd_quatf(ix: orientation.x, iy: orientation.y, iz: orientation.z, r: orientation.w)
+            model = simd_float4x4(quaternion)
+        } else {
+            model = simd_float4x4.rotation(angle: rotationY, axis: SIMD3<Float>(0, 1, 0))
+                * simd_float4x4.rotation(angle: rotationX, axis: SIMD3<Float>(1, 0, 0))
+        }
         return RendererUniforms(
             mvp: projection * view * model,
             pointSize: pointSize

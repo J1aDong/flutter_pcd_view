@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'trackball_orientation.dart';
+
 class NativeCameraController extends ChangeNotifier {
   NativeCameraController({
     double rotationX = -0.3,
@@ -9,16 +11,21 @@ class NativeCameraController extends ChangeNotifier {
     double panY = 0,
     double minUserScale = 0.1,
     double maxUserScale = 10.0,
-  })  : _rotationX = rotationX,
-        _rotationY = rotationY,
-        _userScale = userScale,
-        _panX = panX,
-        _panY = panY,
-        _minUserScale = minUserScale,
-        _maxUserScale = maxUserScale;
+  }) : _rotationX = rotationX,
+       _rotationY = rotationY,
+       _orientation = TrackballOrientation.fromEuler(
+         rotationX: rotationX,
+         rotationY: rotationY,
+       ),
+       _userScale = userScale,
+       _panX = panX,
+       _panY = panY,
+       _minUserScale = minUserScale,
+       _maxUserScale = maxUserScale;
 
   double _rotationX;
   double _rotationY;
+  TrackballOrientation _orientation;
   double _userScale;
   double _panX;
   double _panY;
@@ -27,6 +34,7 @@ class NativeCameraController extends ChangeNotifier {
 
   double get rotationX => _rotationX;
   double get rotationY => _rotationY;
+  TrackballOrientation get orientation => _orientation;
   double get userScale => _userScale;
   double get panX => _panX;
   double get panY => _panY;
@@ -36,6 +44,7 @@ class NativeCameraController extends ChangeNotifier {
   void update({
     double? rotationX,
     double? rotationY,
+    TrackballOrientation? orientation,
     double? userScale,
     double? panX,
     double? panY,
@@ -50,6 +59,17 @@ class NativeCameraController extends ChangeNotifier {
     }
     if (rotationY != null && rotationY != _rotationY) {
       _rotationY = rotationY;
+      changed = true;
+    }
+    if (orientation != null && orientation != _orientation) {
+      _orientation = orientation;
+      changed = true;
+    } else if (orientation == null &&
+        (rotationX != null || rotationY != null)) {
+      _orientation = TrackballOrientation.fromEuler(
+        rotationX: _rotationX,
+        rotationY: _rotationY,
+      );
       changed = true;
     }
     if (panX != null && panX != _panX) {

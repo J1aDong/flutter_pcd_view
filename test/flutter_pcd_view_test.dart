@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_pcd_view/pcd_view.dart';
 import 'package:flutter_pcd_view/src/native/native_renderer_bridge.dart';
+import 'package:flutter_pcd_view/src/native/trackball_orientation.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -101,6 +102,42 @@ void main() {
     expect(updated.panY, -0.75);
   });
 
+  test('TrackballOrientation preserves the initial yaw convention', () {
+    final orientation = TrackballOrientation.fromEuler(
+      rotationX: 0,
+      rotationY: 1.5707963267948966,
+    );
+
+    expect(orientation.x, closeTo(0, 0.000001));
+    expect(orientation.y, closeTo(0.70710678, 0.000001));
+    expect(orientation.z, closeTo(0, 0.000001));
+    expect(orientation.w, closeTo(0.70710678, 0.000001));
+  });
+
+  test('TrackballOrientation composes successive view-space drags', () {
+    final orientation = TrackballOrientation.fromEuler(
+      rotationX: 0,
+      rotationY: 0,
+    );
+    final afterYaw = orientation.drag(
+      from: const Offset(0.5, 0.5),
+      to: const Offset(-0.5, 0.5),
+      aspectRatio: 1,
+      sensitivity: 1,
+    );
+    final afterPitch = afterYaw.drag(
+      from: const Offset(0.5, 0.5),
+      to: const Offset(0.5, 0.0),
+      aspectRatio: 1,
+      sensitivity: 1,
+    );
+
+    expect(afterYaw, isNot(orientation));
+    expect(afterPitch, isNot(afterYaw));
+    expect(afterPitch.toList(), hasLength(4));
+    expect(afterPitch.toList().any((value) => value.abs() > 0.01), isTrue);
+  });
+
   test('NativeCameraController updates pan offsets', () {
     final dynamic controller = Function.apply(
       NativeCameraController.new,
@@ -152,6 +189,7 @@ void main() {
       #zoom: 1.8,
       #panX: 3.0,
       #panY: -4.0,
+      #orientation: TrackballOrientation.identity(),
     });
 
     final createCall = calls.firstWhere(
@@ -165,6 +203,7 @@ void main() {
     );
     expect(updateCall.arguments['panX'], 3.0);
     expect(updateCall.arguments['panY'], -4.0);
+    expect(updateCall.arguments['orientation'], [0.0, 0.0, 0.0, 1.0]);
   });
 
   testWidgets(
@@ -294,7 +333,7 @@ void main() {
   );
 
   testWidgets(
-    'PcdView applies rotationSensitivity during single-finger rotation',
+    'PcdView applies rotationSensitivity to a leftward horizontal drag',
     (tester) async {
       const rootChannel = MethodChannel('flutter_pcd_view/native_renderer');
       const instanceChannel = MethodChannel(
@@ -344,7 +383,7 @@ void main() {
       final gesture = await tester.startGesture(
         tester.getCenter(textureFinder),
       );
-      await gesture.moveBy(const Offset(120, 0));
+      await gesture.moveBy(const Offset(-120, 0));
       await tester.pump(const Duration(milliseconds: 16));
       await gesture.up();
 
@@ -354,7 +393,240 @@ void main() {
       final textureWidth = tester.getSize(textureFinder).width;
       expect(
         updateCall.arguments['rotationY'],
-        closeTo(0.5 + 120 / textureWidth, 0.001),
+        closeTo(0.5 - 120 / textureWidth, 0.001),
+      );
+    },
+    variant: const TargetPlatformVariant(<TargetPlatform>{
+      TargetPlatform.android,
+    }),
+  );
+
+  testWidgets(
+    'PcdView applies upward pitch around the current view axis',
+    (tester) async {
+      const rootChannel = MethodChannel('flutter_pcd_view/native_renderer');
+      const instanceChannel = MethodChannel(
+        'flutter_pcd_view/native_renderer/7',
+      );
+      final calls = <MethodCall>[];
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+
+      messenger.setMockMethodCallHandler(rootChannel, (call) async {
+        calls.add(call);
+        if (call.method == 'createRenderer') {
+          return 7;
+        }
+        return null;
+      });
+      messenger.setMockMethodCallHandler(instanceChannel, (call) async {
+        calls.add(call);
+        return null;
+      });
+      addTearDown(() {
+        messenger.setMockMethodCallHandler(rootChannel, null);
+        messenger.setMockMethodCallHandler(instanceChannel, null);
+      });
+
+      final controller = NativeCameraController(
+        rotationX: 0,
+        rotationY: 3.141592653589793,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SizedBox(
+            width: 300,
+            height: 300,
+            child: PcdView.fromPoints(
+              points: const [
+                Point3D(x: 0, y: 0, z: 0, color: 0xFFFFFFFF, hasColor: true),
+              ],
+              controller: controller,
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump(const Duration(milliseconds: 1));
+
+      final textureFinder = find.byType(Texture);
+      final gesture = await tester.startGesture(
+        tester.getCenter(textureFinder),
+      );
+      await gesture.moveBy(const Offset(0, -60));
+      await tester.pump(const Duration(milliseconds: 16));
+      await gesture.up();
+
+      final updateCall = calls.lastWhere(
+        (call) => call.method == 'updateCamera',
+      );
+      expect(updateCall.arguments['rotationX'], closeTo(-0.2, 0.001));
+      expect(
+        updateCall.arguments['rotationY'],
+        closeTo(3.141592653589793, 0.001),
+      );
+    },
+    variant: const TargetPlatformVariant(<TargetPlatform>{
+      TargetPlatform.android,
+    }),
+  );
+
+  testWidgets(
+    'PcdView composes an upward drag after horizontal rotation',
+    (tester) async {
+      const rootChannel = MethodChannel('flutter_pcd_view/native_renderer');
+      const instanceChannel = MethodChannel(
+        'flutter_pcd_view/native_renderer/7',
+      );
+      final calls = <MethodCall>[];
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+
+      messenger.setMockMethodCallHandler(rootChannel, (call) async {
+        calls.add(call);
+        if (call.method == 'createRenderer') return 7;
+        return null;
+      });
+      messenger.setMockMethodCallHandler(instanceChannel, (call) async {
+        calls.add(call);
+        return null;
+      });
+      addTearDown(() {
+        messenger.setMockMethodCallHandler(rootChannel, null);
+        messenger.setMockMethodCallHandler(instanceChannel, null);
+      });
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: SizedBox(
+            width: 300,
+            height: 300,
+            child: PcdView.fromPoints(
+              points: [
+                Point3D(x: 0, y: 0, z: 0, color: 0xFFFFFFFF, hasColor: true),
+              ],
+              config: ViewerConfig(
+                interaction: InteractionConfig(rotationSensitivity: 1.0),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump(const Duration(milliseconds: 1));
+
+      final texture = find.byType(Texture);
+      final center = tester.getCenter(texture);
+      final yaw = await tester.startGesture(center);
+      await yaw.moveBy(const Offset(-150, 0));
+      await tester.pump(const Duration(milliseconds: 16));
+      await yaw.up();
+      final yawOrientation = List<double>.from(
+        calls
+                .lastWhere((call) => call.method == 'updateCamera')
+                .arguments['orientation']
+            as List,
+      );
+
+      final pitch = await tester.startGesture(center);
+      await pitch.moveBy(const Offset(0, -60));
+      await tester.pump(const Duration(milliseconds: 16));
+      await pitch.up();
+      final combinedOrientation = List<double>.from(
+        calls
+                .lastWhere((call) => call.method == 'updateCamera')
+                .arguments['orientation']
+            as List,
+      );
+
+      expect(yawOrientation, hasLength(4));
+      expect(combinedOrientation, hasLength(4));
+      expect(combinedOrientation, isNot(yawOrientation));
+    },
+    variant: const TargetPlatformVariant(<TargetPlatform>{
+      TargetPlatform.android,
+    }),
+  );
+
+  testWidgets(
+    'PcdView retains a normalized orientation after repeated large drags',
+    (tester) async {
+      const rootChannel = MethodChannel('flutter_pcd_view/native_renderer');
+      const instanceChannel = MethodChannel(
+        'flutter_pcd_view/native_renderer/7',
+      );
+      final calls = <MethodCall>[];
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+
+      messenger.setMockMethodCallHandler(rootChannel, (call) async {
+        calls.add(call);
+        if (call.method == 'createRenderer') {
+          return 7;
+        }
+        return null;
+      });
+      messenger.setMockMethodCallHandler(instanceChannel, (call) async {
+        calls.add(call);
+        return null;
+      });
+      addTearDown(() {
+        messenger.setMockMethodCallHandler(rootChannel, null);
+        messenger.setMockMethodCallHandler(instanceChannel, null);
+      });
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: SizedBox(
+            width: 300,
+            height: 300,
+            child: PcdView.fromPoints(
+              points: [
+                Point3D(x: 0, y: 0, z: 0, color: 0xFFFFFFFF, hasColor: true),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump(const Duration(milliseconds: 1));
+
+      final textureFinder = find.byType(Texture);
+      final textureSize = tester.getSize(textureFinder);
+      final gesture = await tester.startGesture(
+        tester.getCenter(textureFinder),
+      );
+      for (final delta in [
+        Offset(-textureSize.width, 0),
+        Offset(0, -textureSize.height),
+        Offset(textureSize.width, 0),
+        Offset(0, textureSize.height),
+        Offset(-textureSize.width, 0),
+        Offset(0, -textureSize.height),
+        Offset(textureSize.width, 0),
+        Offset(0, textureSize.height),
+      ]) {
+        await gesture.moveBy(delta);
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await gesture.up();
+
+      final updateCall = calls.lastWhere(
+        (call) => call.method == 'updateCamera',
+      );
+      final orientation = List<double>.from(
+        updateCall.arguments['orientation'] as List,
+      );
+      expect(orientation, hasLength(4));
+      expect(
+        orientation.fold<double>(
+          0,
+          (sum, component) => sum + component * component,
+        ),
+        closeTo(1, 0.0001),
       );
     },
     variant: const TargetPlatformVariant(<TargetPlatform>{

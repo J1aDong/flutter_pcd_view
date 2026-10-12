@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.0
+
+- Add virtual trackball rotation with continuously composed 3D orientation across horizontal and vertical drags.
+- Preserve camera orientation through the Flutter-to-native renderer bridge on Android and iOS.
+
 ## 0.1.9
 
 - Upgrade `flutter_rust_bridge` to 2.13.0 (codegen and runtime) to resolve the codegen/runtime version mismatch error with apps using flutter_rust_bridge 2.13.x.

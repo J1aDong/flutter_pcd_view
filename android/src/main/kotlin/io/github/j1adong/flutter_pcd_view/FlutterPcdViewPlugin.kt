@@ -108,6 +108,7 @@ class FlutterPcdViewPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                     renderer.updateCamera(
                         rotationX = call.argument<Number>("rotationX")?.toFloat() ?: -0.3f,
                         rotationY = call.argument<Number>("rotationY")?.toFloat() ?: 0.5f,
+                        orientation = call.argument<List<Number>>("orientation")?.map { it.toFloat() }?.toFloatArray(),
                         zoom = call.argument<Number>("zoom")?.toFloat() ?: 1f,
                         panX = call.argument<Number>("panX")?.toFloat() ?: 0f,
                         panY = call.argument<Number>("panY")?.toFloat() ?: 0f,
@@ -167,6 +168,7 @@ private class AndroidPointCloudRenderer(
     private var backgroundColor: Int = 0xFF000000.toInt()
     private var rotationX: Float = -0.3f
     private var rotationY: Float = 0.5f
+    private var orientation: FloatArray? = null
     private var zoom: Float = 1f
     private var panX: Float = 0f
     private var panY: Float = 0f
@@ -222,10 +224,18 @@ private class AndroidPointCloudRenderer(
         }
     }
 
-    fun updateCamera(rotationX: Float, rotationY: Float, zoom: Float, panX: Float, panY: Float) {
+    fun updateCamera(
+        rotationX: Float,
+        rotationY: Float,
+        orientation: FloatArray? = null,
+        zoom: Float,
+        panX: Float,
+        panY: Float,
+    ) {
         handler.post {
             this.rotationX = rotationX
             this.rotationY = rotationY
+            this.orientation = orientation
             this.zoom = max(zoom, 0.05f)
             this.panX = panX
             this.panY = panY
@@ -352,7 +362,12 @@ private class AndroidPointCloudRenderer(
         Matrix.perspectiveM(projectionMatrix, 0, 45f, aspect, 0.1f, 100f)
         Matrix.setIdentityM(viewMatrix, 0)
         Matrix.translateM(viewMatrix, 0, panX, panY, -3f / zoom)
-        PointCloudCamera.setModelMatrix(modelMatrix, rotationX, rotationY)
+        val currentOrientation = orientation
+        if (currentOrientation == null) {
+            PointCloudCamera.setModelMatrix(modelMatrix, rotationX, rotationY)
+        } else {
+            PointCloudCamera.setModelMatrix(modelMatrix, currentOrientation)
+        }
         Matrix.multiplyMM(pvMatrix, 0, projectionMatrix, 0, viewMatrix, 0)
         Matrix.multiplyMM(mvpMatrix, 0, pvMatrix, 0, modelMatrix, 0)
 
@@ -484,6 +499,23 @@ private class AndroidPointCloudRenderer(
 }
 
 private object PointCloudCamera {
+    fun setModelMatrix(matrix: FloatArray, orientation: FloatArray) {
+        val x = orientation[0]
+        val y = orientation[1]
+        val z = orientation[2]
+        val w = orientation[3]
+        setIdentity(matrix)
+        matrix[0] = 1f - 2f * (y * y + z * z)
+        matrix[1] = 2f * (x * y + z * w)
+        matrix[2] = 2f * (x * z - y * w)
+        matrix[4] = 2f * (x * y - z * w)
+        matrix[5] = 1f - 2f * (x * x + z * z)
+        matrix[6] = 2f * (y * z + x * w)
+        matrix[8] = 2f * (x * z + y * w)
+        matrix[9] = 2f * (y * z - x * w)
+        matrix[10] = 1f - 2f * (x * x + y * y)
+    }
+
     fun setModelMatrix(
         matrix: FloatArray,
         rotationX: Float,

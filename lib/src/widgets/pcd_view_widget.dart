@@ -9,6 +9,7 @@ import '../config/viewer_config.dart';
 import '../ffi/frb.dart' as frb;
 import '../native/native_camera_controller.dart';
 import '../native/native_renderer_bridge.dart';
+import '../native/trackball_orientation.dart';
 
 class ProcessingStats {
   final int originalCount;
@@ -96,6 +97,7 @@ class _PcdViewState extends State<PcdView> {
   int _activeRequestId = 0;
   double _nativeRotationX = 0;
   double _nativeRotationY = 0;
+  late TrackballOrientation _nativeOrientation;
   double _nativeZoom = 1.0;
   double _nativePanX = 0;
   double _nativePanY = 0;
@@ -113,6 +115,7 @@ class _PcdViewState extends State<PcdView> {
     _internalController = _createController(widget.config);
     _nativeRotationX = _controller.rotationX;
     _nativeRotationY = _controller.rotationY;
+    _nativeOrientation = _controller.orientation;
     _nativeZoom = _controller.userScale;
     _nativePanX = _controller.panX;
     _nativePanY = _controller.panY;
@@ -418,6 +421,7 @@ class _PcdViewState extends State<PcdView> {
     await _nativeRenderer!.updateCamera(
       rotationX: _nativeRotationX,
       rotationY: _nativeRotationY,
+      orientation: _nativeOrientation,
       zoom: _nativeZoom,
       panX: _nativePanX,
       panY: _nativePanY,
@@ -485,9 +489,11 @@ class _PcdViewState extends State<PcdView> {
     required double zoom,
     required double panX,
     required double panY,
+    required TrackballOrientation orientation,
   }) async {
     _nativeRotationX = rotationX;
     _nativeRotationY = rotationY;
+    _nativeOrientation = orientation;
     _nativeZoom = zoom
         .clamp(widget.config.camera.minZoom, widget.config.camera.maxZoom)
         .toDouble();
@@ -496,6 +502,7 @@ class _PcdViewState extends State<PcdView> {
     _controller.update(
       rotationX: _nativeRotationX,
       rotationY: _nativeRotationY,
+      orientation: _nativeOrientation,
       userScale: _nativeZoom,
       panX: _nativePanX,
       panY: _nativePanY,
@@ -505,6 +512,7 @@ class _PcdViewState extends State<PcdView> {
       await renderer.updateCamera(
         rotationX: _nativeRotationX,
         rotationY: _nativeRotationY,
+        orientation: _nativeOrientation,
         zoom: _nativeZoom,
         panX: _nativePanX,
         panY: _nativePanY,
@@ -710,6 +718,7 @@ class _PcdViewState extends State<PcdView> {
           interaction: widget.config.interaction,
           rotationX: _nativeRotationX,
           rotationY: _nativeRotationY,
+          orientation: _nativeOrientation,
           zoom: _nativeZoom,
           panX: _nativePanX,
           panY: _nativePanY,
@@ -733,6 +742,7 @@ class _NativePcdTextureRenderer extends StatefulWidget {
   final InteractionConfig interaction;
   final double rotationX;
   final double rotationY;
+  final TrackballOrientation orientation;
   final double zoom;
   final double panX;
   final double panY;
@@ -740,6 +750,7 @@ class _NativePcdTextureRenderer extends StatefulWidget {
   final Future<void> Function({
     required double rotationX,
     required double rotationY,
+    required TrackballOrientation orientation,
     required double zoom,
     required double panX,
     required double panY,
@@ -752,6 +763,7 @@ class _NativePcdTextureRenderer extends StatefulWidget {
     required this.interaction,
     required this.rotationX,
     required this.rotationY,
+    required this.orientation,
     required this.zoom,
     required this.panX,
     required this.panY,
@@ -774,6 +786,9 @@ class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer>
   double _gestureStartPanY = 0;
   double _rotationX = 0;
   double _rotationY = 0;
+  late TrackballOrientation _orientation;
+  Offset _lastFocalPoint = Offset.zero;
+  bool _wasMultiTouch = false;
   double _zoom = 1.0;
   double _panX = 0;
   double _panY = 0;
@@ -785,6 +800,7 @@ class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer>
     WidgetsBinding.instance.addObserver(this);
     _rotationX = widget.rotationX;
     _rotationY = widget.rotationY;
+    _orientation = widget.orientation;
     _zoom = widget.zoom;
     _panX = widget.panX;
     _panY = widget.panY;
@@ -813,11 +829,13 @@ class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.rotationX != widget.rotationX ||
         oldWidget.rotationY != widget.rotationY ||
+        oldWidget.orientation != widget.orientation ||
         oldWidget.zoom != widget.zoom ||
         oldWidget.panX != widget.panX ||
         oldWidget.panY != widget.panY) {
       _rotationX = widget.rotationX;
       _rotationY = widget.rotationY;
+      _orientation = widget.orientation;
       _zoom = widget.zoom;
       _panX = widget.panX;
       _panY = widget.panY;
@@ -857,6 +875,7 @@ class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer>
                   widget.onCameraChanged(
                     rotationX: _rotationX,
                     rotationY: _rotationY,
+                    orientation: _orientation,
                     zoom: _zoom,
                     panX: _panX,
                     panY: _panY,
@@ -868,6 +887,8 @@ class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer>
               behavior: HitTestBehavior.opaque,
               onScaleStart: (details) {
                 _gestureStartFocalPoint = details.localFocalPoint;
+                _lastFocalPoint = details.localFocalPoint;
+                _wasMultiTouch = false;
                 _gestureStartRotationX = _rotationX;
                 _gestureStartRotationY = _rotationY;
                 _gestureStartZoom = _zoom;
@@ -884,6 +905,7 @@ class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer>
                     : delta.dy / size.height;
 
                 if (details.pointerCount > 1) {
+                  _wasMultiTouch = true;
                   _zoom = (_gestureStartZoom * details.scale)
                       .clamp(0.1, 10.0)
                       .toDouble();
@@ -894,19 +916,40 @@ class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer>
                       .clamp(-2.0, 2.0)
                       .toDouble();
                 } else {
+                  if (_wasMultiTouch) {
+                    _wasMultiTouch = false;
+                    _lastFocalPoint = details.localFocalPoint;
+                    _gestureStartFocalPoint = details.localFocalPoint;
+                    _gestureStartRotationX = _rotationX;
+                    _gestureStartRotationY = _rotationY;
+                  }
                   final sensitivity = widget.interaction.rotationSensitivity;
+                  final previousPoint = Offset(
+                    _lastFocalPoint.dx / size.width,
+                    _lastFocalPoint.dy / size.height,
+                  );
+                  final currentPoint = Offset(
+                    details.localFocalPoint.dx / size.width,
+                    details.localFocalPoint.dy / size.height,
+                  );
+                  _orientation = _orientation.drag(
+                    from: previousPoint,
+                    to: currentPoint,
+                    aspectRatio: size.width / size.height,
+                    sensitivity: sensitivity,
+                  );
                   _rotationY =
                       _gestureStartRotationY + normalizedDx * sensitivity;
                   _rotationX =
-                      (_gestureStartRotationX + normalizedDy * sensitivity)
-                          .clamp(-1.45, 1.45)
-                          .toDouble();
+                      _gestureStartRotationX + normalizedDy * sensitivity;
+                  _lastFocalPoint = details.localFocalPoint;
                 }
 
                 unawaited(
                   widget.onCameraChanged(
                     rotationX: _rotationX,
                     rotationY: _rotationY,
+                    orientation: _orientation,
                     zoom: _zoom,
                     panX: _panX,
                     panY: _panY,
@@ -929,6 +972,7 @@ class _NativePcdTextureRendererState extends State<_NativePcdTextureRenderer>
       widget.onCameraChanged(
         rotationX: _rotationX,
         rotationY: _rotationY,
+        orientation: _orientation,
         zoom: _zoom,
         panX: _panX,
         panY: _panY,

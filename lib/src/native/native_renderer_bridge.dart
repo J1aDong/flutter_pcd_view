@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart';
 
 import '../config/viewer_config.dart';
+import 'trackball_orientation.dart';
 
 class NativeRendererBridge {
   NativeRendererBridge._(this.textureId, this._channel);
@@ -76,6 +77,7 @@ class NativeRendererBridge {
     required double zoom,
     required double panX,
     required double panY,
+    TrackballOrientation? orientation,
   }) {
     return _channel.invokeMethod<void>('updateCamera', {
       'rotationX': rotationX,
@@ -83,6 +85,7 @@ class NativeRendererBridge {
       'zoom': zoom,
       'panX': panX,
       'panY': panY,
+      if (orientation != null) 'orientation': orientation.toList(),
     });
   }
 
