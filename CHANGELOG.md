@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+- Fix iOS build failure: `NativeRendererEntry.handle` referenced `Self.orientation`, which resolved to a private static method on `FlutterPcdViewPlugin`; it now calls `FlutterPcdViewPlugin.orientation` (visibility widened to internal).
+
 ## 0.2.0
 
 - Add virtual trackball rotation with continuously composed 3D orientation across horizontal and vertical drags.
