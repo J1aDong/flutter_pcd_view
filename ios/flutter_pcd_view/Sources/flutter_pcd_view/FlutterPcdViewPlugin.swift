@@ -84,7 +84,7 @@ public final class FlutterPcdViewPlugin: NSObject, FlutterPlugin {
         value as? NSNumber
     }
 
-    private static func orientation(_ value: Any?) -> SIMD4<Float>? {
+    static func orientation(_ value: Any?) -> SIMD4<Float>? {
         guard let values = value as? [NSNumber], values.count == 4 else { return nil }
         return SIMD4<Float>(
             values[0].floatValue,
@@ -154,7 +154,7 @@ private final class NativeRendererEntry: NSObject {
             renderer.updateCamera(
                 rotationX: (args["rotationX"] as? NSNumber)?.floatValue ?? -0.3,
                 rotationY: (args["rotationY"] as? NSNumber)?.floatValue ?? 0.5,
-                orientation: Self.orientation(args["orientation"]),
+                orientation: FlutterPcdViewPlugin.orientation(args["orientation"]),
                 zoom: (args["zoom"] as? NSNumber)?.floatValue ?? 1.0,
                 panX: (args["panX"] as? NSNumber)?.floatValue ?? 0.0,
                 panY: (args["panY"] as? NSNumber)?.floatValue ?? 0.0
